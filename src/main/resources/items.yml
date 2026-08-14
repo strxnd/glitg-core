@@ -1,0 +1,19 @@
+config-version: 1
+rules: {}
+limits: {}
+protected: {}
+unique: {}
+potion-policy:
+  banned: []
+  ban-tier-1: false
+  ban-tier-2: false
+  maximum-amplifier: {}
+golden-head:
+  enabled: false
+  material: PLAYER_HEAD
+  absorption-hearts: 4
+  regeneration-seconds: 10
+warden-heart:
+  enabled: false
+  drop-chance: 1.0
+  material: ECHO_SHARD

@@ -1,0 +1,5 @@
+config-version: 1
+banned: []
+maximum-levels: {}
+exempt-materials: []
+allow-existing-overlevelled-custom-items: true

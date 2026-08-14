@@ -1,0 +1,119 @@
+# GLITG Core configuration schema. Unknown keys are preserved on reload.
+config-version: 2
+locale: en
+update-checker: false
+
+features:
+  # When false, operators administer the server but still obey gameplay restrictions.
+  operator-bypass: false
+  item-rules: true
+  item-limits: true
+  potion-policy: true
+  enchant-policy: true
+  unique-items: true
+  custom-crafting: true
+  protected-items: true
+  combat-tag: true
+  cooldowns: true
+  damage-caps: true
+  protections: true
+  grace: true
+  death-system: true
+  join-kit: false
+  dimensions: true
+  packet-protections: false
+  admin-utilities: true
+  altars: false
+  rituals: false
+  villagers: false
+  golden-heads: false
+  warden-heart: false
+  miscellaneous: false
+
+items:
+  limit-scope: PLAYER
+  include-ender-chest: false
+  overflow: BLOCK
+  traverse-shulkers: true
+  traverse-bundles: true
+
+combat:
+  duration-seconds: 15
+  block-commands: true
+  whitelisted-commands: [msg, tell, w, reply, r, combat]
+  block-safe-regions: true
+  disconnect-action: KILL
+
+cooldowns:
+  shield: 5s
+  ender_pearl: 10s
+  wind_charge: 5s
+  trident: 3s
+  enchanted_golden_apple: 60s
+  mace: 5s
+  spear: 5s
+  lunge: 5s
+
+damage-caps:
+  # Values are health points: 2 health points = 1 heart.
+  mace: 20.0
+  spear: 16.0
+  end_crystal: 24.0
+  respawn_anchor: 24.0
+  bed_explosion: 24.0
+  bad_respawn_point: 24.0
+  tnt_minecart: 24.0
+  tnt: 20.0
+  projectile: 20.0
+  fall: 20.0
+
+protections:
+  afk:
+    enabled: false
+    activation-seconds: 300
+    command-delay-seconds: 10
+  naked:
+    enabled: false
+    require-empty-armor: true
+  new-player:
+    enabled: false
+    duration-seconds: 3600
+
+grace:
+  active-on-startup: false
+  duration-seconds: 600
+  start-actions: []
+
+death:
+  spectator-on-death: false
+  death-ban-seconds: 0
+  custom-message: ''
+  sound: ''
+
+dimensions:
+  nether-locked: false
+  end-locked: false
+
+packet-protections:
+  anti-health-indicator: false
+  anti-seed-cracking: false
+  anti-minimap: false
+  minimap-fair: false
+
+villagers:
+  infinite-restock: false
+  anchor-on-click: false
+  prevent-killing: false
+
+misc:
+  locator-bar: true
+  happy-ghast-speed-multiplier: 1.0
+  ban-tipped-arrows: false
+  ban-breach-swapping: false
+  prevent-string-duper: false
+  anti-draining: false
+  anti-dura: false
+  attribute-swapping: false
+  better-pearl-catching: false
+
+custom-spawn: {}

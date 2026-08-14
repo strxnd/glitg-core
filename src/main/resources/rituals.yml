@@ -1,0 +1,18 @@
+config-version: 1
+altars:
+  basic:
+    enabled: false
+    block: LODESTONE
+    interaction-radius: 4.0
+rituals:
+  example:
+    enabled: false
+    altar: basic
+    input-material: NETHER_STAR
+    input-amount: 1
+    duration-seconds: 10
+    radius: 3.0
+    particle: SOUL_FIRE_FLAME
+    result-material: BEACON
+    result-amount: 1
+    commands: []

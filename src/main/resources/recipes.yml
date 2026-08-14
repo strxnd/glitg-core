@@ -1,0 +1,11 @@
+config-version: 1
+recipes:
+  # example:
+  #   enabled: false
+  #   type: SHAPED
+  #   result-material: GOLDEN_APPLE
+  #   result-amount: 1
+  #   shape: [' G ', 'GAG', ' G ']
+  #   ingredients:
+  #     G: GOLD_INGOT
+  #     A: APPLE

@@ -1,0 +1,170 @@
+name: GLITGCore
+prefix: 'GLITG Core'
+version: ${version}
+main: dev.glitg.core.GLITGCorePlugin
+description: Clean-room, open-source SMP rules and administration core.
+api-version: '26.2'
+author: GLITG Core contributors
+load: POSTWORLD
+softdepend: [ProtocolLib, packetevents, PacketEvents, WorldGuard, LifeStealZ, CoreProtect, GrimAC]
+commands:
+  glitgcore:
+    description: GLITG Core administration
+    usage: /glitgcore <gui|reload|status|feature|debug|migration|version>
+    aliases: [glitg]
+    permission: glitgcore.admin
+  banitem:
+    description: Add an item restriction from the item in your hand
+    usage: /banitem [ALL|CRAFT|INTERACT|DROPPING|PICKUP|INVENTORY_MOVE|STORAGE|TRADE|EQUIP]
+    permission: glitgcore.items.manage
+  itemlimit:
+    description: Set or remove a limit for the item in your hand
+    usage: /itemlimit <amount|remove>
+    permission: glitgcore.items.manage
+  combat:
+    description: Show combat-tag time remaining
+    usage: /combat
+    permission: glitgcore.combat.status
+  cooldown:
+    description: Query or reset cooldowns
+    usage: /cooldown <status|reset> [player] [key]
+    permission: glitgcore.cooldown.status
+  grace:
+    description: Show grace-period status
+    usage: /grace
+    permission: glitgcore.grace.status
+  start:
+    description: Start server grace period
+    usage: /start [seconds]
+    permission: glitgcore.grace.manage
+  stopgrace:
+    description: End the grace period immediately
+    usage: /stopgrace
+    permission: glitgcore.grace.manage
+  kit:
+    description: Manage the exact join-kit inventory
+    usage: /kit <save|load|clear|resetplayer|join|give>
+    permission: glitgcore.kit.manage
+  invsee:
+    description: Open another player's inventory
+    usage: /invsee <player>
+    permission: glitgcore.admin.invsee
+  endersee:
+    description: Open another player's ender chest
+    usage: /endersee <player>
+    permission: glitgcore.admin.endersee
+  vanish:
+    description: Toggle vanish
+    usage: /vanish [player]
+    permission: glitgcore.admin.vanish
+  sbroadcast:
+    description: Broadcast an Adventure-formatted server message
+    usage: /sbroadcast <message>
+    permission: glitgcore.admin.broadcast
+  reply:
+    description: Reply to the last private-message correspondent
+    usage: /reply <message>
+    aliases: [r]
+    permission: glitgcore.message.reply
+  smsg:
+    description: Send a private message
+    usage: /smsg <player> <message>
+    aliases: [msg, tell, w]
+    permission: glitgcore.message.send
+  enchant:
+    description: Advanced safe enchantment command
+    usage: /enchant <player|@s|@a> <enchantment> [level|remove]
+    permission: glitgcore.admin.enchant
+  worldtp:
+    description: Teleport to a loaded world spawn
+    usage: /worldtp <world> [player]
+    permission: glitgcore.admin.worldtp
+  setrespawnspawn:
+    description: Set the current world's respawn spawn
+    usage: /setrespawnspawn
+    permission: glitgcore.admin.setspawn
+  setcustomspawn:
+    description: Set GLITG Core's custom spawn
+    usage: /setcustomspawn
+    permission: glitgcore.admin.setspawn
+  dimension:
+    description: Query or change dimension locks
+    usage: /dimension <status|lock|unlock|schedule> <nether|end> [seconds]
+    permission: glitgcore.dimension.status
+  uniqueitem:
+    description: Query or edit global craft allocations
+    usage: /uniqueitem <query|set|reset> <id> [value]
+    permission: glitgcore.unique.manage
+  deathban:
+    description: Query or clear death bans
+    usage: /deathban <status|clear> [player]
+    permission: glitgcore.deathban.manage
+  saltar:
+    description: Place, remove, list, or inspect persistent altars
+    usage: /saltar <place|remove|list|info> [definition]
+    permission: glitgcore.altar.manage
+permissions:
+  glitgcore.*:
+    default: op
+    children:
+      glitgcore.admin: true
+  glitgcore.admin:
+    default: op
+  glitgcore.items.manage:
+    default: op
+  glitgcore.combat.status:
+    default: true
+  glitgcore.cooldown.status:
+    default: true
+  glitgcore.cooldown.reset:
+    default: op
+  glitgcore.grace.status:
+    default: true
+  glitgcore.grace.manage:
+    default: op
+  glitgcore.kit.manage:
+    default: op
+  glitgcore.message.reply:
+    default: true
+  glitgcore.message.send:
+    default: true
+  glitgcore.dimension.status:
+    default: true
+  glitgcore.dimension.manage:
+    default: op
+  glitgcore.unique.manage:
+    default: op
+  glitgcore.deathban.manage:
+    default: op
+  glitgcore.altar.manage:
+    default: op
+  glitgcore.bypass.*:
+    default: false
+    children:
+      glitgcore.bypass.itemrules: true
+      glitgcore.bypass.itemlimits: true
+      glitgcore.bypass.enchants: true
+      glitgcore.bypass.cooldowns: true
+      glitgcore.bypass.damagecaps: true
+      glitgcore.bypass.combat: true
+      glitgcore.bypass.protection: true
+      glitgcore.bypass.dimensions: true
+      glitgcore.bypass.misc: true
+  glitgcore.bypass.itemrules:
+    default: false
+  glitgcore.bypass.itemlimits:
+    default: false
+  glitgcore.bypass.enchants:
+    default: false
+  glitgcore.bypass.cooldowns:
+    default: false
+  glitgcore.bypass.damagecaps:
+    default: false
+  glitgcore.bypass.combat:
+    default: false
+  glitgcore.bypass.protection:
+    default: false
+  glitgcore.bypass.dimensions:
+    default: false
+  glitgcore.bypass.misc:
+    default: false
