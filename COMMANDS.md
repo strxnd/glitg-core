@@ -4,7 +4,7 @@ All dangerous permissions default to operators. `<player>` means an online playe
 
 | Command | Purpose | Permission |
 |---|---|---|
-| `/glitgcore gui` | Open the complete three-page admin control console | `glitgcore.admin` |
+| `/glitgcore gui` | Open the Gameplay / Balance / Content control panel | `glitgcore.admin` |
 | `/glitgcore reload` | Validate and live-reload YAML/services | `glitgcore.admin` |
 | `/glitgcore status|debug|migration|version` | Runtime diagnostics | `glitgcore.admin` |
 | `/glitgcore feature <key> <on|off>` | Persist a feature toggle | `glitgcore.admin` |
@@ -28,6 +28,6 @@ All dangerous permissions default to operators. `<player>` means an online playe
 | `/saltar place|remove|list|info [id]` | Persistent altar admin | `glitgcore.altar.manage` |
 | `/enchant <player|@s|@a> <key> [level|remove]` | Policy-aware advanced enchant | `glitgcore.admin.enchant` |
 
-Bypasses: `glitgcore.bypass.itemrules`, `.itemlimits`, `.enchants`, `.cooldowns`, `.damagecaps`, `.combat`, `.protection`, `.dimensions`, `.misc`, and umbrella `glitgcore.bypass.*`. For operators, **Rules → Operator gameplay bypass** is the sole bypass authority. With it disabled, operators obey restrictions even if the server implicitly reports a bypass node. Granular nodes are intended for non-operator staff.
+Bypasses: `glitgcore.bypass.itemrules`, `.itemlimits`, `.enchants`, `.cooldowns`, `.damagecaps`, `.combat`, `.protection`, `.dimensions`, `.misc`, and umbrella `glitgcore.bypass.*`. For operators, **Gameplay → Operator bypass** is the sole bypass authority. With it disabled, operators obey restrictions even if the server implicitly reports a bypass node. Granular nodes are intended for non-operator staff.
 
 Every command has console-safe validation, usage text, tab completion, and exact permission declaration in `plugin.yml`.

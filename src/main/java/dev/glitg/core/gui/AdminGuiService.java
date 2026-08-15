@@ -163,15 +163,14 @@ public final class AdminGuiService implements Listener {
             feature.description().forEach(line -> lore.add(text("<gray>" + line + "</gray>")));
             lore.add(Component.empty());
             lore.add(status(enabled));
-            lore.add(text("<gold>› Left-click</gold> <white>Configure</white>"));
-            lore.add(text("<yellow>› Right-click</yellow> <white>" + (enabled ? "Disable" : "Enable") + "</white>"));
+            lore.add(text("<gold>Left-click</gold> <white>Configure</white>"));
+            lore.add(text("<yellow>Right-click</yellow> <white>" + (enabled ? "Disable" : "Enable") + "</white>"));
             inventory.setItem(CONTENT_SLOTS[index], icon(feature.icon(), text("<white>" + feature.label() + "</white>"), lore, enabled));
         }
-        inventory.setItem(48, icon(Material.BARRIER, text("<red>Close console</red>"),
-                List.of(text("<gray>Leave the administration console.</gray>")), false));
-        inventory.setItem(50, icon(Material.CLOCK, text("<gold>Reload configuration</gold>"),
-                List.of(text("<gray>Validate files and refresh live services.</gray>"),
-                        text("<gold>› Click</gold> <white>Reload now</white>")), true));
+        inventory.setItem(48, icon(Material.BARRIER, text("<red>Close</red>"), List.of(), false));
+        inventory.setItem(50, icon(Material.CLOCK, text("<gold>Reload</gold>"),
+                List.of(text("<gray>Reload and validate all settings.</gray>"),
+                        text("<gold>Click</gold> <white>Reload now</white>")), true));
         player.openInventory(inventory);
     }
 
@@ -183,8 +182,8 @@ public final class AdminGuiService implements Listener {
             inventory.setItem(slots[index], icon(category.icon,
                     text((category == selected ? "<gold><bold>◆ " : "<gray>") + category.label + (category == selected ? "</bold>" : "")),
                     List.of(text(category == selected
-                            ? "<gold>Selected collection</gold>"
-                            : "<gray>Click to open this collection.</gray>")), category == selected));
+                            ? "<gold>Selected</gold>"
+                            : "<gray>Click to open.</gray>")), category == selected));
         }
     }
 
@@ -198,14 +197,14 @@ public final class AdminGuiService implements Listener {
         feature.description().forEach(line -> masterLore.add(text("<gray>" + line + "</gray>")));
         masterLore.add(Component.empty());
         masterLore.add(status(enabled));
-        masterLore.add(text("<gold>› Click</gold> <white>" + (enabled ? "Disable" : "Enable") + " feature</white>"));
+        masterLore.add(text("<gold>Click</gold> <white>" + (enabled ? "Disable" : "Enable") + "</white>"));
         inventory.setItem(4, icon(feature.icon(), text("<gold><bold>◆ " + feature.label() + "</bold></gold>"), masterLore, enabled));
 
         int offset = 0;
         if (feature.special() != GuiCatalog.Special.NONE) {
             inventory.setItem(CONTENT_SLOTS[offset++], icon(specialIcon(feature.special()), text("<gold>Manage " + feature.label().toLowerCase(Locale.ROOT) + "</gold>"),
-                    List.of(text("<gray>Open the complete in-game editor.</gray>"),
-                            text("<gold>› Left-click</gold> <white>Open editor</white>")), true));
+                    List.of(text("<gray>Open the editor.</gray>"),
+                            text("<gold>Click</gold> <white>Open</white>")), true));
         }
         for (GuiCatalog.Setting setting : feature.settings()) {
             if (offset >= CONTENT_SLOTS.length) break;
@@ -216,8 +215,8 @@ public final class AdminGuiService implements Listener {
                     List.of(text("<gray>This feature is controlled by its master switch.</gray>")), false));
         }
         inventory.setItem(45, backIcon("Back to " + feature.category().label));
-        inventory.setItem(49, icon(Material.COMPASS, text("<gold>Collection overview</gold>"),
-                List.of(text("<gray>Return to all " + feature.category().label.toLowerCase(Locale.ROOT) + " controls.</gray>")), true));
+        inventory.setItem(49, icon(Material.COMPASS, text("<gold>All " + feature.category().label.toLowerCase(Locale.ROOT) + " settings</gold>"),
+                List.of(text("<gray>Return to the category.</gray>")), true));
         player.openInventory(inventory);
     }
 
@@ -227,14 +226,14 @@ public final class AdminGuiService implements Listener {
         List<Component> lore = new ArrayList<>();
         setting.description().forEach(line -> lore.add(text("<gray>" + line + "</gray>")));
         lore.add(Component.empty());
-        lore.add(text("<dark_gray>Current  /</dark_gray> <white>" + displayValue(value) + "</white>"));
+        lore.add(text("<dark_gray>Current:</dark_gray> <white>" + displayValue(value) + "</white>"));
         if (setting.type() == GuiCatalog.ValueType.BOOLEAN) {
-            lore.add(text("<gold>› Click</gold> <white>Toggle</white>"));
+            lore.add(text("<gold>Click</gold> <white>Toggle</white>"));
         } else if (setting.type() == GuiCatalog.ValueType.ENUM) {
-            lore.add(text("<gold>› Left-click</gold> <white>Next value</white>"));
-            lore.add(text("<yellow>› Right-click</yellow> <white>Previous value</white>"));
+            lore.add(text("<gold>Left-click</gold> <white>Next</white>"));
+            lore.add(text("<yellow>Right-click</yellow> <white>Previous</white>"));
         } else {
-            lore.add(text("<gold>› Click</gold> <white>Enter value in chat</white>"));
+            lore.add(text("<gold>Click</gold> <white>Edit in chat</white>"));
         }
         return icon(setting.icon(), text("<white>" + setting.label() + "</white>"), lore, active);
     }
@@ -386,7 +385,7 @@ public final class AdminGuiService implements Listener {
             lore.add(text("<gold>› Left-click</gold> <white>Ban / allow</white>"));
             lore.add(text("<yellow>› Right-click</yellow> <white>Set maximum</white>"));
             lore.add(text("<red>› Shift-right-click</red> <white>Clear maximum</white>"));
-            inventory.setItem(CONTENT_SLOTS[index], icon(Material.ENCHANTED_BOOK, text((blocked ? "<red>" : "<white>") + friendly(key) + "</" + (blocked ? "red" : "white") + ">"), lore, true));
+            inventory.setItem(CONTENT_SLOTS[index], icon(Material.ENCHANTED_BOOK, text((blocked ? "<red>" : "<white>") + friendly(key) + "</" + (blocked ? "red" : "white") + ">"), lore, !blocked));
         }
         finishPaged(inventory, page, values.size(), null);
         player.openInventory(inventory);
@@ -436,7 +435,7 @@ public final class AdminGuiService implements Listener {
                 List.of(text("<gray>Add a test copy without clearing your inventory.</gray>")), true));
         inventory.setItem(7, icon(Material.LAVA_BUCKET, text("<red>Clear configured kit</red>"),
                 List.of(text("<gray>Requires confirmation.</gray>")), false));
-        inventory.setItem(49, backIcon("Back to Content & tools"));
+        inventory.setItem(49, backIcon("Back to Content"));
         player.openInventory(inventory);
     }
 
@@ -449,7 +448,7 @@ public final class AdminGuiService implements Listener {
                 new CommandCard(Material.CHEST, "/invsee <player>", "Edit an online player's inventory."),
                 new CommandCard(Material.ENDER_CHEST, "/endersee <player>", "Edit an online player's ender chest."),
                 new CommandCard(Material.ENDER_EYE, "/vanish [player]", "Toggle vanish and item-pickup suppression."),
-                new CommandCard(Material.BELL, "/sbroadcast <message>", "Broadcast an Adventure-formatted message."),
+                new CommandCard(Material.BELL, "/sbroadcast <message>", "Broadcast a server message."),
                 new CommandCard(Material.COMPASS, "/worldtp <world> [player]", "Teleport to a loaded world's spawn."),
                 new CommandCard(Material.LODESTONE, "/setcustomspawn", "Store GLITG Core's custom spawn."),
                 new CommandCard(Material.ENCHANTED_BOOK, "/enchant ...", "Apply policy-aware enchantments."));
@@ -457,7 +456,7 @@ public final class AdminGuiService implements Listener {
             CommandCard card = cards.get(index);
             inventory.setItem(CONTENT_SLOTS[index], icon(card.icon, text("<white>" + card.command + "</white>"), List.of(text("<gray>" + card.description + "</gray>")), true));
         }
-        inventory.setItem(36, backIcon("Back to Content & tools"));
+        inventory.setItem(36, backIcon("Back to Content"));
         player.openInventory(inventory);
     }
 
@@ -920,7 +919,7 @@ public final class AdminGuiService implements Listener {
     private void prompt(Player player, String instruction, Function<String, Object> parser, CheckedInput action, Consumer<Player> reopen) {
         prompts.put(player.getUniqueId(), new InputPrompt(parser, action, reopen));
         player.closeInventory();
-        player.sendMessage(text("<gold><bold>◆ GLITG  /  INPUT</bold></gold>"));
+        player.sendMessage(text("<gold><bold>GLITG</bold></gold> <dark_gray>•</dark_gray> <white>Input</white>"));
         player.sendMessage(text("<white>" + instruction + "</white>"));
         player.sendMessage(text("<gray>Type a value in chat, or enter</gray> <yellow>cancel</yellow><gray> to return.</gray>"));
     }
@@ -998,11 +997,10 @@ public final class AdminGuiService implements Listener {
     }
 
     private void renderRecipeControls(MenuHolder holder) {
-        holder.inventory.setItem(4, icon(Material.WRITABLE_BOOK, text("<gold><bold>◆ Recipe atelier</bold></gold>"), List.of(
-                text("<gray>Click an inventory item to select it.</gray>"),
-                text("<gray>Click a grid slot to place the selected ingredient.</gray>"),
-                text("<gray>Shift-click an inventory item to set the result.</gray>"),
-                text("<gray>Right-click a grid/result slot to clear it.</gray>")), true));
+        holder.inventory.setItem(4, icon(Material.WRITABLE_BOOK, text("<gold><bold>◆ Recipe editor</bold></gold>"), List.of(
+                text("<gray>Click an item, then click the recipe grid.</gray>"),
+                text("<gray>Shift-click an item to set the result.</gray>"),
+                text("<gray>Right-click a slot to clear it.</gray>")), true));
         holder.inventory.setItem(36, backIcon("Back to custom recipes"));
         holder.inventory.setItem(39, icon(holder.recipeType == RecipeDefinition.Type.SHAPED ? Material.CRAFTING_TABLE : Material.BUNDLE,
                 text("<yellow>Recipe type  /  " + friendly(holder.recipeType.name()) + "</yellow>"),
@@ -1061,7 +1059,7 @@ public final class AdminGuiService implements Listener {
     private Consumer<Player> reopenFeature(GuiCatalog.Feature feature) { return player -> openFeature(player, feature); }
 
     private static String menuTitle(String section) {
-        return "<gold><bold>◆ GLITG</bold></gold> <dark_gray>│</dark_gray> <white>" + section + "</white>";
+        return "<gold><bold>GLITG</bold></gold> <dark_gray>•</dark_gray> <white>" + section + "</white>";
     }
 
     private static String menuTitle(String section, String detail) {
