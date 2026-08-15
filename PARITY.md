@@ -9,14 +9,14 @@ Status vocabulary is the required final checklist vocabulary. “Automatic” me
 | Paper 26.2 support | Yes | U1, Aug 12 | IMPLEMENTED + TESTED | Build + smoke | Java 25 per Paper docs |
 | Admin GUI and categories | Yes | U2 Apr 13; U1 Jul 14 | IMPLEMENTED + MANUAL TEST REQUIRED | Smoke load + input parser tests | Three current-style pages; original GLITG visual system; current values, navigation, prompts, and confirmations |
 | Live feature toggles | Yes | U4 Dec 17 | IMPLEMENTED + MANUAL TEST REQUIRED | Config tests | File is source of truth |
-| Reload and validation | Yes | Repeated bugfixes | IMPLEMENTED + TESTED | Config parsing/migration | Failed reload retains prior config |
+| Reload and validation | Yes | Repeated bugfixes | IMPLEMENTED + TESTED | Strict config parsing | Failed reload retains prior config; unsupported schemas are rejected |
 | Ban item: ALL | Yes | U1 Jul 1 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Exact matcher, no display names |
 | Ban item: CRAFT | Yes | U1 Jul 1 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Craft and preparation guarded |
 | Ban item: INTERACT | Yes | U1 Jul 1 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Main/off-hand Paper interaction |
 | Ban item: DROPPING | Yes | U1 Jul 1 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Drop event blocked |
 | Ban item: PICKUP | Yes | U1 Jul 1 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Item entity remains intact |
-| Inventory/container bypass guards | Implied current | U1 Jul 13 bugfix | IMPLEMENTED + MANUAL TEST REQUIRED | Traversal automatic | Click/drag/hotbar/hopper/dispense/storage paths |
-| Item quantity limits | Yes | U1 Jul 13 | IMPLEMENTED + TESTED | Limit math automatic | Blocks overflow; never silently deletes |
+| Inventory/container bypass guards | Implied current | U1 Jul 13 bugfix | IMPLEMENTED + MANUAL TEST REQUIRED | Traversal automatic | Click/drag/hotbar/hopper/dispense/frame/armour-stand/storage paths |
+| Item quantity limits | Yes | U1 Jul 13 | IMPLEMENTED + TESTED | Group math automatic | Grouped carried/stored/combat scopes and stack units; insertion audits drop recoverably |
 | Potion-specific item limits | Yes | U1 Jun 25 | IMPLEMENTED + TESTED | Identity matcher automatic | Potion key, not display name |
 | Bundle/shulker traversal | Yes | U4 Feb 1 | IMPLEMENTED + TESTED | Depth/node tests | Bounded recursive traversal |
 | Ender-chest-inclusive limits | Public semantics unclear | Prompt inventory | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Limit math automatic | Configurable, off by default |
@@ -37,12 +37,12 @@ Status vocabulary is the required final checklist vocabulary. “Automatic” me
 | Recipe GUI editor | Yes | U4 Dec 8; overview images | IMPLEMENTED + MANUAL TEST REQUIRED | Definition tests + smoke load | Browse/create/preload/edit/toggle/remove; virtual items prevent consumption and duplication; shaped/shapeless |
 | Immortal/death-protected items | Yes (“Deathdrop Immunity”) | U4 Feb 1 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Only explicitly matched drops are moved |
 | Glowing configured items | Yes | U4 Feb 1; U1 Jun 25 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Component glint override; custom models safe |
-| Stop-storage items | Yes | U4 Mar 6; U1 Jun 25 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Player/container/hopper paths |
+| Stop-storage items | Yes | U4 Mar 6; U1 Jun 25 | IMPLEMENTED + MANUAL TEST REQUIRED | Matcher automatic | Click, drag, hopper, item-frame, and armour-stand paths |
 | PvP combat tag | Yes | U3 Mar 9; U1 Jul 14 | IMPLEMENTED + TESTED | State transitions automatic | Cancellable public event API |
 | Combat messages/time query | Yes | U3 Mar 9 | IMPLEMENTED + TESTED | State time automatic | Absolute clock |
 | Block commands in combat | Yes | U1 Jul 14 | IMPLEMENTED + MANUAL TEST REQUIRED | — | Normalized whitelist |
 | Block entering safe regions | Yes | U1 Jul 14 | IMPLEMENTED + MANUAL TEST REQUIRED | — | WorldGuard plus service-provider API |
-| Combat disconnect action | Implied current | Combat surface | IMPLEMENTED + MANUAL TEST REQUIRED | State automatic | Configurable KILL/NONE |
+| Combat disconnect action | Implied current | Combat surface | IMPLEMENTED + MANUAL TEST REQUIRED | State automatic | Configurable PvP and environmental-danger KILL/NONE |
 | Shield cooldown | Yes | U6 v1.5 | IMPLEMENTED + TESTED | Cooldown clock automatic | Paper material cooldown plus event block |
 | Pearl cooldown | Yes | U6 v1.5 | IMPLEMENTED + TESTED | Cooldown clock automatic | Launch-triggered |
 | Wind-charge cooldown | Yes | U6 v1.5 | IMPLEMENTED + TESTED | Cooldown clock automatic | Launch-triggered |
@@ -60,6 +60,7 @@ Status vocabulary is the required final checklist vocabulary. “Automatic” me
 | Fall damage cap | Yes | U3 Mar 25 | IMPLEMENTED + TESTED | Damage math automatic | DamageCause.FALL |
 | Bed/respawn-anchor cap | Public semantics unclear | Review Apr 20 asks for anchor; prompt asks both | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Damage math automatic | Uses BAD_RESPAWN_POINT fallback when source block is gone |
 | AFK protection | Yes | U2 May 2; U4 Feb 2 | IMPLEMENTED + MANUAL TEST REQUIRED | Protection transitions automatic | Only position changes clear inactivity |
+| Post-death protection | Public semantics unclear | Prompt inventory | IMPLEMENTED + TESTED | SQLite reopen + state transitions | Durable duration, outgoing attack revokes, optional loot/container anti-interference |
 | Naked protection | Yes | U2 May 2 | IMPLEMENTED + MANUAL TEST REQUIRED | Protection transitions automatic | Blocks bows too; protected attacker cannot exploit |
 | New-player grace protection | Public semantics unclear | Prompt inventory | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Protection transitions automatic | Based on firstPlayed; outgoing attacks also blocked |
 | Start/stop grace | Yes | U2 May 10 | IMPLEMENTED + TESTED | Absolute-time logic | Persisted end instant; bossbar/title/chat |
@@ -69,7 +70,7 @@ Status vocabulary is the required final checklist vocabulary. “Automatic” me
 | Death message and sound | Yes | U3 Mar 25/Mar 14 | IMPLEMENTED + MANUAL TEST REQUIRED | Registry compile | Adventure message, sound registry |
 | First-join kit | Yes | U5 Oct 24/Oct 30 | IMPLEMENTED + MANUAL TEST REQUIRED | Codec path manual | Exact serialized ItemStacks, safe overflow drop |
 | Kit save/load/clear/reset/join/give all | Yes | U5 Oct 24/Oct 30 | IMPLEMENTED + MANUAL TEST REQUIRED | — | Includes `@a` give |
-| Nether and End locks | Yes | U5 Nov 7/Oct 24 | IMPLEMENTED + MANUAL TEST REQUIRED | — | Portal, teleport API, world-change fallback, scheduled unlock |
+| Nether and End locks | Yes | U5 Nov 7/Oct 24 | IMPLEMENTED + MANUAL TEST REQUIRED | SQLite reopen + smoke | Portal, teleport API, world-change fallback, restart-safe scheduled unlock |
 | Anti Health Indicator | Yes | Overview; U3 Apr 6 | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Dependency smoke manual | Provider-gated; no false claim when unavailable |
 | Anti Seed Cracking | Yes | Overview; U3 Apr 6 | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Dependency smoke manual | Server cannot guarantee secrecy after terrain disclosure; dependency state is explicit |
 | Anti Minimap / fair minimap | Yes | U4 Mar 1/Dec 17 | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Manual | Config/state and dependency reporting; no fake client enforcement |
@@ -85,7 +86,6 @@ Status vocabulary is the required final checklist vocabulary. “Automatic” me
 | Villager-kill protection | Public semantics unclear | Prompt inventory | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Manual | Optional direct-player damage cancellation |
 | Golden Heads | Yes | U2 Apr 29; U3 Apr 6 | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Manual | UHC-style recipe/effects are configurable and tagged |
 | Warden Heart | Yes | U2 Jun 6; U4 Feb 1 | PUBLIC SEMANTICS AMBIGUOUS — CLOSEST IMPLEMENTATION PROVIDED | Manual | Configurable tagged drop; exact proprietary effect not claimed |
-| Locator Bar control | Yes | U4 Feb 1 | IMPLEMENTED + MANUAL TEST REQUIRED | API compile | 26.2 GameRules API |
 | Happy Ghast speed | Yes | U3 Mar 14 | IMPLEMENTED + MANUAL TEST REQUIRED | — | One-time PDC-guarded base-speed multiplier |
 | Tipped-arrow restriction | Yes | U5 v1.9 | IMPLEMENTED + MANUAL TEST REQUIRED | Potion identity automatic | Actual arrow potion data |
 | Breach swapping restriction | Yes | U5 v1.9 | IMPLEMENTED + MANUAL TEST REQUIRED | — | Enchantment key, not name |
@@ -98,4 +98,4 @@ Status vocabulary is the required final checklist vocabulary. “Automatic” me
 
 ## Count
 
-This matrix identifies 89 current or plausibly-current public parity features. All 89 have either an implementation or the required closest safe implementation for ambiguous public semantics. Thirty-two are classified `IMPLEMENTED + TESTED`; the remaining 57 require a live gameplay or optional-dependency check, including 15 closest-safe implementations where the public semantics are ambiguous. Historical removals are excluded and listed separately.
+This matrix identifies 89 current or plausibly-current public parity features. All 89 have either an implementation or the required closest safe implementation for ambiguous public semantics. Historical removals are excluded and listed separately. Locator Bar control is intentionally left to vanilla commands.

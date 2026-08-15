@@ -38,7 +38,7 @@ for _ in $(seq 1 120); do
 done
 
 if [[ "$READY" -eq 1 ]]; then
-  printf 'glitgcore version\nglitgcore status\nstop\n' >&3
+  printf 'glitgcore version\nglitgcore status\nstart 2\ndimension status end\nanonymousdeaths status\nstop\n' >&3
 fi
 
 for _ in $(seq 1 30); do
@@ -50,6 +50,8 @@ exec 3>&-
 
 [[ "$READY" -eq 1 ]] || { echo "Paper did not become ready" >&2; tail -120 "$SERVER_DIR/server.log" >&2; exit 1; }
 grep -q 'GLITG Core 1.0.0 enabled for Paper 26.2' "$SERVER_DIR/server.log" || { echo "GLITG Core did not enable" >&2; tail -120 "$SERVER_DIR/server.log" >&2; exit 1; }
+grep -q 'Invisible-player deaths are hidden until:' "$SERVER_DIR/server.log" || { echo "Independent timer commands did not execute" >&2; tail -120 "$SERVER_DIR/server.log" >&2; exit 1; }
+grep -q 'The End.*locked' "$SERVER_DIR/server.log" || { echo "Durable End scheduling did not execute" >&2; tail -120 "$SERVER_DIR/server.log" >&2; exit 1; }
 if grep -Eiq '(Unhandled exception|Could not pass event|GLITG Core could not start safely|\[GLITG Core\].*(ERROR|SEVERE)|Exception in thread)' "$SERVER_DIR/server.log"; then
   echo "Exception detected in smoke-test log" >&2
   grep -Ein '(Unhandled exception|Could not pass event|GLITG Core could not start safely|\[GLITG Core\].*(ERROR|SEVERE)|Exception in thread)' "$SERVER_DIR/server.log" >&2

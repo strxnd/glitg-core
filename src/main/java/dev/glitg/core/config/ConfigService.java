@@ -5,16 +5,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.bukkit.configuration.InvalidConfigurationException;
 
 public final class ConfigService {
-    public static final int CURRENT_VERSION = 2;
+    public static final int CURRENT_VERSION = 1;
     private static final List<String> FILES = List.of(
             "config.yml", "messages.yml", "items.yml", "enchants.yml", "recipes.yml", "rituals.yml", "kits.yml");
 
@@ -37,7 +34,7 @@ public final class ConfigService {
             } catch (IOException | InvalidConfigurationException exception) {
                 throw new ConfigurationException(name + " is not valid YAML: " + exception.getMessage());
             }
-            migrate(name, file, yaml);
+            validateVersion(name, yaml);
             configurations.put(name, yaml);
         }
         var flattened = new LinkedHashMap<String, Object>();
@@ -71,27 +68,11 @@ public final class ConfigService {
         }
     }
 
-    private void migrate(String name, File file, YamlConfiguration yaml) throws ConfigurationException {
-        int version = yaml.getInt("config-version", name.equals("config.yml") ? 0 : CURRENT_VERSION);
-        if (version > CURRENT_VERSION) {
-            throw new ConfigurationException(name + " uses future config-version " + version);
-        }
-        if (version == CURRENT_VERSION) return;
-        try {
-            File backup = new File(file.getParentFile(), name + ".backup-" + Instant.now().toEpochMilli());
-            Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.COPY_ATTRIBUTES);
-            if (name.equals("config.yml") && version < 1 && yaml.contains("rules.combat_time") && !yaml.contains("combat.duration-seconds")) {
-                yaml.set("combat.duration-seconds", yaml.get("rules.combat_time"));
-                yaml.set("rules.combat_time", null);
-            }
-            if (name.equals("config.yml") && version < 2 && !yaml.contains("features.operator-bypass")) {
-                yaml.set("features.operator-bypass", false);
-            }
-            yaml.set("config-version", CURRENT_VERSION);
-            yaml.save(file);
-            plugin.getLogger().info("Migrated " + name + " to schema " + CURRENT_VERSION + " (backup: " + backup.getName() + ")");
-        } catch (IOException exception) {
-            throw new ConfigurationException("could not migrate " + name, exception);
+    private static void validateVersion(String name, YamlConfiguration yaml) throws ConfigurationException {
+        Object version = yaml.get("config-version");
+        if (!(version instanceof Number number) || number.intValue() != CURRENT_VERSION) {
+            throw new ConfigurationException(name + " must use config-version " + CURRENT_VERSION
+                    + "; configuration upgrades are not supported");
         }
     }
 

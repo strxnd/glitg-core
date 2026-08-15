@@ -20,36 +20,17 @@ public final class SqliteDatabase implements AutoCloseable {
             statement.execute("PRAGMA busy_timeout=5000");
             statement.execute("PRAGMA foreign_keys=ON");
         }
-        migrate();
+        initializeSchema();
     }
 
-    private void migrate() throws SQLException {
+    private void initializeSchema() throws SQLException {
         try (Statement statement = connection.createStatement()) {
-            statement.executeUpdate("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
-            statement.executeUpdate("INSERT INTO schema_version(version) SELECT 0 WHERE NOT EXISTS (SELECT 1 FROM schema_version)");
-        }
-        int version;
-        try (var statement = connection.createStatement(); var result = statement.executeQuery("SELECT version FROM schema_version")) {
-            version = result.next() ? result.getInt(1) : 0;
-        }
-        if (version < 1) {
-            connection.setAutoCommit(false);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate("CREATE TABLE unique_crafts (id TEXT PRIMARY KEY, used INTEGER NOT NULL CHECK(used >= 0))");
-                statement.executeUpdate("CREATE TABLE death_bans (player_uuid TEXT PRIMARY KEY, expires_at INTEGER NOT NULL)");
-                statement.executeUpdate("CREATE TABLE state (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
-                statement.executeUpdate("CREATE TABLE altars (id TEXT PRIMARY KEY, world_uuid TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, definition TEXT NOT NULL)");
-                statement.executeUpdate("CREATE TABLE ritual_runs (id TEXT PRIMARY KEY, ritual_id TEXT NOT NULL, altar_id TEXT NOT NULL, state TEXT NOT NULL, started_at INTEGER NOT NULL, completes_at INTEGER NOT NULL)");
-                statement.executeUpdate("UPDATE schema_version SET version=1");
-                connection.commit();
-            } catch (SQLException exception) {
-                connection.rollback();
-                throw exception;
-            } finally {
-                connection.setAutoCommit(true);
-            }
-        }
-        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS unique_crafts (id TEXT PRIMARY KEY, used INTEGER NOT NULL CHECK(used >= 0))");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS death_bans (player_uuid TEXT PRIMARY KEY, expires_at INTEGER NOT NULL)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS altars (id TEXT PRIMARY KEY, world_uuid TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, definition TEXT NOT NULL)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS ritual_runs (id TEXT PRIMARY KEY, ritual_id TEXT NOT NULL, altar_id TEXT NOT NULL, state TEXT NOT NULL, started_at INTEGER NOT NULL, completes_at INTEGER NOT NULL)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS player_protections (player_uuid TEXT PRIMARY KEY, expires_at INTEGER NOT NULL)");
             statement.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS ritual_one_active_per_altar ON ritual_runs(altar_id) WHERE state='RUNNING'");
         }
     }
@@ -73,6 +54,28 @@ public final class SqliteDatabase implements AutoCloseable {
 
     public synchronized void clearDeathBan(UUID player) throws SQLException {
         try (var statement = connection.prepareStatement("DELETE FROM death_bans WHERE player_uuid=?")) {
+            statement.setString(1, player.toString());
+            statement.executeUpdate();
+        }
+    }
+
+    public synchronized void putProtection(UUID player, long expiresAtMillis) throws SQLException {
+        try (var statement = connection.prepareStatement("INSERT INTO player_protections(player_uuid, expires_at) VALUES(?, ?) ON CONFLICT(player_uuid) DO UPDATE SET expires_at=excluded.expires_at")) {
+            statement.setString(1, player.toString());
+            statement.setLong(2, expiresAtMillis);
+            statement.executeUpdate();
+        }
+    }
+
+    public synchronized long protectionExpiry(UUID player) throws SQLException {
+        try (var statement = connection.prepareStatement("SELECT expires_at FROM player_protections WHERE player_uuid=?")) {
+            statement.setString(1, player.toString());
+            try (var result = statement.executeQuery()) { return result.next() ? result.getLong(1) : 0L; }
+        }
+    }
+
+    public synchronized void clearProtection(UUID player) throws SQLException {
+        try (var statement = connection.prepareStatement("DELETE FROM player_protections WHERE player_uuid=?")) {
             statement.setString(1, player.toString());
             statement.executeUpdate();
         }

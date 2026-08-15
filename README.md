@@ -11,7 +11,7 @@ Target: Paper 26.2, Java 25, GLITG Core 1.0.0.
 3. Start Paper once, edit the generated files in `plugins/GLITGCore/`, then run `/glitgcore reload`.
 4. Grant specific `glitgcore.*` permissions to staff. Management permissions default to operators, but gameplay bypasses do not. The Gameplay panel has an explicit global operator-bypass toggle.
 
-All ambiguous or potentially destructive mechanics default off. Item rules, limits, enchant rules, cooldowns, caps, combat, grace, kits, recipes, dimensions, rituals, and utilities can be changed independently. `/glitgcore gui` opens a clean Gameplay / Balance / Content control panel. Every control shows its current value and click behavior; detailed editors cover items, potions, enchantments, recipes, kits, unique crafts, altars, and rituals. `/glitgcore recipe <id>` opens the virtual metadata-preserving shaped/shapeless editor. `/glitg` is the short command alias.
+Item rules, grouped/scoped limits, effect-aware potion rules, enchant rules, cooldowns, caps, combat restrictions, post-death protection, grace, kits, recipes, dimensions, independent timers, rituals, and utilities can be changed independently. The bundled configuration implements the deterministic portions of the GLITG server rules; heart economy, anti-cheat, claims, and judgment calls remain external. `/glitgcore gui` opens the Gameplay / Balance / Content control panel. `/glitgcore recipe <id>` opens the virtual metadata-preserving shaped/shapeless editor. `/glitg` is the short command alias.
 
 ## Optional integrations
 
@@ -32,7 +32,7 @@ The public SMP Core overview conflicts with its April 2026 changelog about wheth
 /saltar place basic
 ```
 
-Documentation: [commands](COMMANDS.md), [configuration](CONFIGURATION.md), [architecture](ARCHITECTURE.md), [parity](PARITY.md), [testing](TESTING.md), and [compatibility](COMPATIBILITY.md).
+Documentation: [server-rule boundary](SERVER_RULES.md), [commands](COMMANDS.md), [configuration](CONFIGURATION.md), [architecture](ARCHITECTURE.md), [parity](PARITY.md), [testing](TESTING.md), and [compatibility](COMPATIBILITY.md).
 
 ## Clean-room evidence boundary
 

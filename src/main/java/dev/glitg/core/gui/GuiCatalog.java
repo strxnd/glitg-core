@@ -62,15 +62,17 @@ final class GuiCatalog {
         add(features, "item-limits", "Item limits", Material.HOPPER, Category.RULES, Special.ITEM_LIMITS,
                 List.of("Set how many of an item each player may carry."), List.of(
                         bool("config.yml", "items.include-ender-chest", "Count ender chest", Material.ENDER_CHEST, "Include ender-chest contents in limits."),
-                        enumeration("config.yml", "items.limit-scope", "Limit scope", Material.COMPASS, List.of("PLAYER"), "Where quantity limits are counted."),
+                        bool("config.yml", "items.audit-insertions", "Audit inserted items", Material.ENDER_EYE, "Periodically drop restricted or excess externally inserted items."),
+                        integer("config.yml", "items.audit-interval-ticks", "Audit interval", Material.CLOCK, "Ticks between online inventory audits."),
+                        enumeration("config.yml", "items.limit-scope", "New-limit scope", Material.COMPASS, List.of("CARRIED", "STORED", "COMBAT_LOADOUT"), "Scope assigned to newly created quantity limits."),
                         enumeration("config.yml", "items.overflow", "Overflow action", Material.DROPPER, List.of("BLOCK"), "How excess items are handled.")));
         add(features, "potion-policy", "Potion policy", Material.POTION, Category.RULES, Special.POTIONS,
                 List.of("Ban individual potion types or complete tiers."), List.of(
                         bool("items.yml", "potion-policy.ban-tier-1", "Ban all Tier I", Material.POTION, "Blocks every Tier I potion."),
-                        bool("items.yml", "potion-policy.ban-tier-2", "Ban all Tier II", Material.SPLASH_POTION, "Blocks every Tier II potion.")));
+                        bool("items.yml", "potion-policy.ban-tier-2", "Ban all Tier II", Material.SPLASH_POTION, "Blocks every Tier II potion."),
+                        list("items.yml", "potion-policy.banned-effects", "Banned effects", Material.FERMENTED_SPIDER_EYE, "Comma-separated effect keys banned in base and custom potions.")));
         add(features, "enchant-policy", "Enchant policy", Material.ENCHANTED_BOOK, Category.RULES, Special.ENCHANTMENTS,
-                List.of("Ban enchantments and set maximum accepted levels."), List.of(
-                        bool("enchants.yml", "allow-existing-overlevelled-custom-items", "Preserve existing custom items", Material.NETHER_STAR, "Do not downgrade unrelated custom items already in circulation.")));
+                List.of("Ban enchantments and set maximum accepted levels."), List.of());
         add(features, "unique-items", "Unique crafts", Material.MACE, Category.RULES, Special.UNIQUE_ITEMS,
                 List.of("Cap successful crafts globally with durable atomic counters."), List.of());
         add(features, "protected-items", "Special items", Material.TOTEM_OF_UNDYING, Category.RULES, Special.PROTECTED_ITEMS,
@@ -81,7 +83,17 @@ final class GuiCatalog {
                         bool("config.yml", "combat.block-commands", "Block commands", Material.COMMAND_BLOCK, "Block non-whitelisted commands during combat."),
                         list("config.yml", "combat.whitelisted-commands", "Allowed commands", Material.PAPER, "Comma-separated commands allowed during combat."),
                         bool("config.yml", "combat.block-safe-regions", "Block safe-region entry", Material.SHIELD, "Prevent tagged players entering safe regions."),
-                        enumeration("config.yml", "combat.disconnect-action", "Logout action", Material.SKELETON_SKULL, List.of("KILL", "NONE"), "Penalty for disconnecting while tagged.")));
+                        enumeration("config.yml", "combat.disconnect-action", "Logout action", Material.SKELETON_SKULL, List.of("KILL", "NONE"), "Penalty for disconnecting while tagged."),
+                        bool("config.yml", "combat.danger-logging.enabled", "Danger logging", Material.FLINT_AND_STEEL, "Penalize logout shortly after environmental damage."),
+                        integer("config.yml", "combat.danger-logging.duration-seconds", "Danger duration", Material.CLOCK, "Seconds environmental danger remains active."),
+                        enumeration("config.yml", "combat.danger-logging.disconnect-action", "Danger logout action", Material.SKELETON_SKULL, List.of("KILL", "NONE"), "Penalty for disconnecting in danger."),
+                        bool("config.yml", "combat.restrictions.elytra", "Block Elytra", Material.ELYTRA, "Block gliding and armour changes during combat."),
+                        bool("config.yml", "combat.restrictions.lava", "Block lava", Material.LAVA_BUCKET, "Block emptying lava buckets during combat."),
+                        bool("config.yml", "combat.restrictions.ice", "Block ice", Material.PACKED_ICE, "Block placing ice during combat."),
+                        bool("config.yml", "combat.restrictions.draining", "Block draining", Material.SPONGE, "Block bucket filling and sponge placement during combat."),
+                        bool("config.yml", "combat.restrictions.armour-switching", "Block armour switching", Material.DIAMOND_CHESTPLATE, "Block armour-slot changes during combat."),
+                        bool("config.yml", "combat.restrictions.armour-restocking", "Block armour pickup", Material.ARMOR_STAND, "Block acquiring backup armour during combat."),
+                        bool("config.yml", "combat.restrictions.container-restocking", "Block containers", Material.CHEST, "Block opening restock containers during combat.")));
         add(features, "protections", "PvP protections", Material.SHIELD, Category.RULES, Special.NONE,
                 List.of("AFK, naked, and new-player protection with anti-abuse rules."), List.of(
                         bool("config.yml", "protections.afk.enabled", "AFK protection", Material.CLOCK, "Protect genuinely inactive players."),
@@ -89,7 +101,11 @@ final class GuiCatalog {
                         bool("config.yml", "protections.naked.enabled", "Naked protection", Material.LEATHER_CHESTPLATE, "Protect players without armor."),
                         bool("config.yml", "protections.naked.require-empty-armor", "Require empty armor", Material.ARMOR_STAND, "Require all armor slots to be empty."),
                         bool("config.yml", "protections.new-player.enabled", "New-player protection", Material.PLAYER_HEAD, "Protect players during their first play period."),
-                        integer("config.yml", "protections.new-player.duration-seconds", "New-player duration", Material.CLOCK, "Protection duration in seconds.")));
+                        integer("config.yml", "protections.new-player.duration-seconds", "New-player duration", Material.CLOCK, "Protection duration in seconds."),
+                        bool("config.yml", "protections.post-death.enabled", "Post-death protection", Material.TOTEM_OF_UNDYING, "Protect players after every death."),
+                        integer("config.yml", "protections.post-death.duration-seconds", "Post-death duration", Material.CLOCK, "Protection duration in seconds."),
+                        bool("config.yml", "protections.post-death.block-item-pickup", "Block protected pickup", Material.HOPPER, "Prevent protected players interfering with ground loot."),
+                        bool("config.yml", "protections.post-death.block-container-access", "Block protected containers", Material.CHEST, "Prevent protected players restocking or moving stored loot.")));
         add(features, "dimensions", "Dimension locks", Material.END_PORTAL_FRAME, Category.RULES, Special.NONE,
                 List.of("Open or close the Nether and End."), List.of(
                         bool("config.yml", "dimensions.nether-locked", "Nether locked", Material.NETHERRACK, "Block travel into the Nether."),
@@ -150,7 +166,10 @@ final class GuiCatalog {
                         string("items.yml", "warden-heart.material", "Result material", Material.ECHO_SHARD, "Minecraft material name.")));
         add(features, "miscellaneous", "Fight mechanics", Material.REDSTONE, Category.BALANCING, Special.NONE,
                 List.of("Configure additional combat rules."), List.of(
-                        bool("config.yml", "misc.locator-bar", "Locator bar", Material.COMPASS, "Enable the 26.2 locator-bar game rule."),
+                        string("config.yml", "misc.hide-invisible-deaths-until", "Hide invisible deaths until", Material.POTION, "Optional ISO-8601 UTC cutoff timestamp."),
+                        bool("config.yml", "misc.ban-bed-bombing", "Ban bed bombing", Material.RED_BED, "Block explosive bed use outside the Overworld."),
+                        bool("config.yml", "misc.ban-respawn-anchor-bombing", "Ban anchor bombing", Material.RESPAWN_ANCHOR, "Block explosive anchor use outside the Nether."),
+                        integer("config.yml", "misc.breeze-rod-drop-multiplier", "Breeze Rod multiplier", Material.BREEZE_ROD, "Multiply Breeze Rod drops; one keeps vanilla behavior."),
                         decimal("config.yml", "misc.happy-ghast-speed-multiplier", "Happy Ghast speed", Material.HAPPY_GHAST_SPAWN_EGG, "Base flying-speed multiplier."),
                         bool("config.yml", "misc.ban-tipped-arrows", "Ban tipped arrows", Material.TIPPED_ARROW, "Block potion arrows at launch."),
                         bool("config.yml", "misc.ban-breach-swapping", "Ban Breach swapping", Material.MACE, "Block Breach hand swaps."),

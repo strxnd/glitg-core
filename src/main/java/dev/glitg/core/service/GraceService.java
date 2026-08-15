@@ -34,7 +34,7 @@ public final class GraceService implements AutoCloseable {
         this.bar = BossBar.bossBar(messages.raw("<gold>Grace period</gold>"), 1.0f, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS);
         restore();
         if (endsAt == null && configs.main().getBoolean("grace.active-on-startup", false)) {
-            start(Duration.ofSeconds(configs.main().getLong("grace.duration-seconds", 600)));
+            start(Duration.ofSeconds(configs.main().getLong("grace.duration-seconds", 3600)));
         }
     }
 
@@ -80,7 +80,7 @@ public final class GraceService implements AutoCloseable {
             Duration remaining = remaining();
             if (remaining.isZero()) { stop(); return; }
             float progress = Math.max(0.0f, Math.min(1.0f, remaining.toMillis() /
-                    (float) Duration.ofSeconds(configs.main().getLong("grace.duration-seconds", 600)).toMillis()));
+                    (float) Duration.ofSeconds(configs.main().getLong("grace.duration-seconds", 3600)).toMillis()));
             bar.progress(progress);
             bar.name(messages.raw("<gold>Grace: " + Math.max(1, remaining.toSeconds()) + "s</gold>"));
             Bukkit.getOnlinePlayers().forEach(player -> player.showBossBar(bar));

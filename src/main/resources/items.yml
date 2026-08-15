@@ -1,13 +1,132 @@
 config-version: 1
-rules: {}
-limits: {}
+rules:
+  netherite-helmet:
+    actions: [ALL]
+    material: minecraft:netherite_helmet
+  netherite-chestplate:
+    actions: [ALL]
+    material: minecraft:netherite_chestplate
+  netherite-leggings:
+    actions: [ALL]
+    material: minecraft:netherite_leggings
+  netherite-boots:
+    actions: [ALL]
+    material: minecraft:netherite_boots
+  netherite-sword:
+    actions: [ALL]
+    material: minecraft:netherite_sword
+  netherite-axe:
+    actions: [ALL]
+    material: minecraft:netherite_axe
+  netherite-spear:
+    actions: [ALL]
+    material: minecraft:netherite_spear
+  end-crystal:
+    actions: [ALL]
+    material: minecraft:end_crystal
+  enchanted-golden-apple:
+    actions: [ALL]
+    material: minecraft:enchanted_golden_apple
+  totem-of-undying:
+    actions: [ALL]
+    material: minecraft:totem_of_undying
+  ender-pearl:
+    actions: [ALL]
+    material: minecraft:ender_pearl
+  tipped-arrow:
+    actions: [ALL]
+    material: minecraft:tipped_arrow
+limits:
+  healing-potion:
+    enabled: true
+    group: healing-potions
+    scope: CARRIED
+    maximum: 6
+    material: minecraft:potion
+    potion: minecraft:healing
+  strong-healing-potion:
+    enabled: true
+    group: healing-potions
+    scope: CARRIED
+    maximum: 6
+    material: minecraft:potion
+    potion: minecraft:strong_healing
+  healing-splash-potion:
+    enabled: true
+    group: healing-potions
+    scope: CARRIED
+    maximum: 6
+    material: minecraft:splash_potion
+    potion: minecraft:healing
+  strong-healing-splash-potion:
+    enabled: true
+    group: healing-potions
+    scope: CARRIED
+    maximum: 6
+    material: minecraft:splash_potion
+    potion: minecraft:strong_healing
+  healing-lingering-potion:
+    enabled: true
+    group: healing-potions
+    scope: CARRIED
+    maximum: 6
+    material: minecraft:lingering_potion
+    potion: minecraft:healing
+  strong-healing-lingering-potion:
+    enabled: true
+    group: healing-potions
+    scope: CARRIED
+    maximum: 6
+    material: minecraft:lingering_potion
+    potion: minecraft:strong_healing
+  xp-bottles:
+    enabled: true
+    group: xp-bottles
+    scope: CARRIED
+    maximum-stacks: 3
+    material: minecraft:experience_bottle
+  cobwebs:
+    enabled: true
+    group: cobwebs
+    scope: CARRIED
+    maximum-stacks: 2
+    material: minecraft:cobweb
+  golden-apples:
+    enabled: true
+    group: golden-apples
+    scope: CARRIED
+    maximum-stacks: 2
+    material: minecraft:golden_apple
+  breeze-rods:
+    enabled: true
+    group: breeze-rods
+    scope: CARRIED
+    maximum-stacks: 1
+    material: minecraft:breeze_rod
 protected: {}
-unique: {}
+unique:
+  mace:
+    enabled: true
+    recipe-key: minecraft:mace
+    limit: 1
 potion-policy:
   banned: []
+  banned-effects:
+    - minecraft:poison
+    - minecraft:slowness
+    - minecraft:weakness
+    - minecraft:slow_falling
   ban-tier-1: false
   ban-tier-2: false
-  maximum-amplifier: {}
+  maximum-amplifier:
+    minecraft:speed: 0
+  duration-rules:
+    strength-two:
+      enabled: true
+      effect: minecraft:strength
+      amplifier: 1
+      minimum-duration-ticks: 9600
+      maximum-duration-ticks: 9600
 golden-head:
   enabled: false
   material: PLAYER_HEAD

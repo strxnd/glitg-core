@@ -1,5 +1,15 @@
 config-version: 1
-banned: []
-maximum-levels: {}
+banned:
+  - minecraft:thorns
+  - minecraft:fire_aspect
+  - minecraft:lunge
+  - minecraft:riptide
+  - minecraft:punch
+maximum-levels:
+  minecraft:protection: 3
+  minecraft:sharpness: 3
+  minecraft:power: 4
+  minecraft:density: 3
+  minecraft:breach: 3
+  minecraft:wind_burst: 1
 exempt-materials: []
-allow-existing-overlevelled-custom-items: true

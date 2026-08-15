@@ -22,7 +22,7 @@ Public evidence conflicts: the current overview names ProtocolLib, while the Apr
 
 ## Custom items
 
-The matcher considers only configured material, potion key, modern/legacy model data, explicitly named PDC string entries, enchant levels, and explicit tags. It never strips metadata, downgrades an arbitrary item in place, or treats every third-party PDC item as an GLITG Core item. Exact ItemStack serialization preserves names, lore, attributes, enchantments, components, model data, and PDC.
+The matcher considers only configured material, potion key, modern custom-model components, explicitly named PDC string entries, enchant levels, and explicit tags. It never strips metadata, downgrades an arbitrary item in place, or treats every third-party PDC item as an GLITG Core item. Exact ItemStack serialization preserves names, lore, attributes, enchantments, components, model data, and PDC.
 
 ## Reloads
 

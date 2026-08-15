@@ -14,6 +14,7 @@ import dev.glitg.core.item.PotionPolicyService;
 import dev.glitg.core.item.RuleEngine;
 import dev.glitg.core.listener.AltarListener;
 import dev.glitg.core.listener.CombatProtectionListener;
+import dev.glitg.core.listener.CombatRestrictionListener;
 import dev.glitg.core.listener.ItemPolicyListener;
 import dev.glitg.core.listener.LifecycleGameplayListener;
 import dev.glitg.core.listener.MiscGameplayListener;
@@ -25,6 +26,7 @@ import dev.glitg.core.service.AltarRitualService;
 import dev.glitg.core.service.DimensionService;
 import dev.glitg.core.service.GraceService;
 import dev.glitg.core.service.KitService;
+import dev.glitg.core.service.PostDeathProtectionService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -62,19 +64,21 @@ public final class GLITGCorePlugin extends JavaPlugin {
             var cooldowns = new CooldownService(clock);
             var integrations = new IntegrationManager(this);
             grace = new GraceService(this, configs, messages, database, clock);
-            var dimensions = new DimensionService(configs, clock);
+            var dimensions = new DimensionService(this, configs, database, clock);
+            var postDeath = new PostDeathProtectionService(this, database, clock);
             var kits = new KitService(configs);
             altars = new AltarRitualService(this, configs, messages, database, clock);
             var gui = new AdminGuiService(this, configs, messages, crafting, rules, enchants, potions, kits);
             getLogger().info("Validated " + gui.validate() + " in-game configuration controls.");
-            combatListener = new CombatProtectionListener(configs, messages, combat, cooldowns, grace, integrations, clock);
+            combatListener = new CombatProtectionListener(configs, messages, combat, cooldowns, grace, integrations, postDeath, clock);
             var router = new CommandRouter(this, configs, messages, rules, enchants, potions, combat, cooldowns,
-                    grace, dimensions, kits, uniqueItems, database, altars, gui);
+                    grace, dimensions, kits, uniqueItems, database, altars, gui, postDeath);
 
             registerListeners(gui, router,
-                    new ItemPolicyListener(configs, messages, rules, enchants, potions, adapter),
+                    new ItemPolicyListener(this, configs, messages, rules, enchants, potions, adapter, combat, postDeath),
                     combatListener,
-                    new LifecycleGameplayListener(this, configs, messages, rules, dimensions, kits, database, clock),
+                    new CombatRestrictionListener(configs, messages, combat),
+                    new LifecycleGameplayListener(this, configs, messages, rules, dimensions, kits, database, postDeath, clock),
                     new UniqueCraftListener(configs, messages, uniqueItems),
                     new AltarListener(altars), new MiscGameplayListener(this, configs, messages));
             registerCommands(router);
@@ -98,9 +102,9 @@ public final class GLITGCorePlugin extends JavaPlugin {
     }
 
     private void registerCommands(CommandRouter router) {
-        List<String> names = List.of("glitgcore","banitem","itemlimit","combat","cooldown","grace","start","stopgrace",
+        List<String> names = List.of("glitgcore","banitem","itemlimit","combat","protection","cooldown","grace","start","stopgrace",
                 "kit","invsee","endersee","vanish","sbroadcast","smsg","reply","worldtp","setrespawnspawn","setcustomspawn",
-                "dimension","uniqueitem","deathban","saltar","enchant");
+                "dimension","anonymousdeaths","uniqueitem","deathban","saltar","enchant");
         for (String name : names) {
             PluginCommand command = getCommand(name);
             if (command == null) throw new IllegalStateException("command missing from plugin.yml: " + name);

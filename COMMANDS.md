@@ -6,12 +6,13 @@ All dangerous permissions default to operators. `<player>` means an online playe
 |---|---|---|
 | `/glitgcore gui` | Open the Gameplay / Balance / Content control panel | `glitgcore.admin` |
 | `/glitgcore reload` | Validate and live-reload YAML/services | `glitgcore.admin` |
-| `/glitgcore status|debug|migration|version` | Runtime diagnostics | `glitgcore.admin` |
+| `/glitgcore status|debug|version` | Runtime diagnostics | `glitgcore.admin` |
 | `/glitgcore feature <key> <on|off>` | Persist a feature toggle | `glitgcore.admin` |
 | `/glitgcore recipe <id>` | Open the virtual shaped/shapeless recipe editor | `glitgcore.admin` |
 | `/banitem [ALL|CRAFT|INTERACT|DROPPING|PICKUP|INVENTORY_MOVE|STORAGE|TRADE|EQUIP]` | With no mode, open the appropriate held-item/potion/enchantment GUI; with a mode, add the rule directly | `glitgcore.items.manage` |
 | `/itemlimit <amount|remove>` | Manage held-item quantity limit | `glitgcore.items.manage` |
 | `/combat` | Remaining combat time | `glitgcore.combat.status` |
+| `/protection` | Remaining post-death protection time | `glitgcore.protection.status` |
 | `/cooldown status [key]` | Remaining cooldown | `glitgcore.cooldown.status` |
 | `/cooldown reset [player] [key]` | Reset one/all cooldowns | `glitgcore.cooldown.reset` |
 | `/grace`, `/start [seconds]`, `/stopgrace` | Grace status/control | `glitgcore.grace.status`, `.manage` |
@@ -23,6 +24,7 @@ All dangerous permissions default to operators. `<player>` means an online playe
 | `/worldtp <world> [player]` | Loaded-world spawn teleport | `glitgcore.admin.worldtp` |
 | `/setrespawnspawn`, `/setcustomspawn` | Save spawn locations | `glitgcore.admin.setspawn` |
 | `/dimension status|lock|unlock|schedule <nether|end> [seconds]` | Dimension controls | `glitgcore.dimension.status`, `.manage` |
+| `/anonymousdeaths status|start|stop [seconds]` | Independent invisible-player death-message timer | `glitgcore.timers.status`, `.manage` |
 | `/uniqueitem query|set|reset <id> [value]` | Atomic craft-counter admin | `glitgcore.unique.manage` |
 | `/deathban status|clear [player]` | Death-ban admin | `glitgcore.deathban.manage` |
 | `/saltar place|remove|list|info [id]` | Persistent altar admin | `glitgcore.altar.manage` |

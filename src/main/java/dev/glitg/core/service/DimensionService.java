@@ -1,7 +1,9 @@
 package dev.glitg.core.service;
 
 import dev.glitg.core.config.ConfigService;
+import dev.glitg.core.persistence.SqliteDatabase;
 import org.bukkit.World;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
 import java.time.Clock;
@@ -13,11 +15,17 @@ import java.util.Map;
 public final class DimensionService {
     private final ConfigService configs;
     private final Clock clock;
+    private final JavaPlugin plugin;
+    private final SqliteDatabase database;
     private final Map<World.Environment, Instant> scheduledUnlocks = new EnumMap<>(World.Environment.class);
 
-    public DimensionService(ConfigService configs, Clock clock) {
+    public DimensionService(JavaPlugin plugin, ConfigService configs, SqliteDatabase database, Clock clock) {
+        this.plugin = plugin;
         this.configs = configs;
+        this.database = database;
         this.clock = clock;
+        restore(World.Environment.NETHER);
+        restore(World.Environment.THE_END);
     }
 
     public boolean locked(World.Environment environment) {
@@ -41,11 +49,34 @@ public final class DimensionService {
         };
         configs.main().set(key, locked);
         configs.save("config.yml");
-        if (!locked) scheduledUnlocks.remove(environment);
+        if (!locked) {
+            scheduledUnlocks.remove(environment);
+            persist(environment, null);
+        }
     }
 
     public void scheduleUnlock(World.Environment environment, Duration duration) {
         if (duration.isNegative() || duration.isZero()) throw new IllegalArgumentException("duration must be positive");
-        scheduledUnlocks.put(environment, clock.instant().plus(duration));
+        Instant expiry = clock.instant().plus(duration);
+        scheduledUnlocks.put(environment, expiry);
+        persist(environment, expiry);
+    }
+
+    private void restore(World.Environment environment) {
+        try {
+            String raw = database.state(stateKey(environment));
+            if (raw != null && !raw.equals("0")) scheduledUnlocks.put(environment, Instant.ofEpochMilli(Long.parseLong(raw)));
+        } catch (java.sql.SQLException | NumberFormatException exception) {
+            plugin.getLogger().warning("Could not restore dimension unlock: " + exception.getMessage());
+        }
+    }
+
+    private void persist(World.Environment environment, Instant expiry) {
+        try { database.putState(stateKey(environment), expiry == null ? "0" : String.valueOf(expiry.toEpochMilli())); }
+        catch (java.sql.SQLException exception) { plugin.getLogger().warning("Could not persist dimension unlock: " + exception.getMessage()); }
+    }
+
+    private static String stateKey(World.Environment environment) {
+        return "dimension." + (environment == World.Environment.THE_END ? "end" : "nether") + ".unlock-at";
     }
 }

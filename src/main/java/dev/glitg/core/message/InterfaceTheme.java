@@ -20,13 +20,13 @@ public final class InterfaceTheme {
     public static final String EMERALD = "#72C38E";
     public static final String GARNET = "#DE6B63";
 
-    private static final Map<String, String> LEGACY_PALETTE = palette();
+    private static final Map<String, String> SEMANTIC_PALETTE = palette();
 
     private InterfaceTheme() {}
 
     public static String apply(String miniMessage) {
         String themed = miniMessage;
-        for (Map.Entry<String, String> entry : LEGACY_PALETTE.entrySet()) {
+        for (Map.Entry<String, String> entry : SEMANTIC_PALETTE.entrySet()) {
             themed = themed.replace("<" + entry.getKey() + ">", "<" + entry.getValue() + ">")
                     .replace("</" + entry.getKey() + ">", "</" + entry.getValue() + ">");
         }

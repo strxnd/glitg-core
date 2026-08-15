@@ -1,5 +1,5 @@
 # GLITG Core configuration schema. Unknown keys are preserved on reload.
-config-version: 2
+config-version: 1
 locale: en
 update-checker: false
 
@@ -28,12 +28,14 @@ features:
   villagers: false
   golden-heads: false
   warden-heart: false
-  miscellaneous: false
+  miscellaneous: true
 
 items:
-  limit-scope: PLAYER
+  limit-scope: CARRIED
   include-ender-chest: false
   overflow: BLOCK
+  audit-insertions: true
+  audit-interval-ticks: 100
   traverse-shulkers: true
   traverse-bundles: true
 
@@ -43,6 +45,18 @@ combat:
   whitelisted-commands: [msg, tell, w, reply, r, combat]
   block-safe-regions: true
   disconnect-action: KILL
+  danger-logging:
+    enabled: true
+    duration-seconds: 15
+    disconnect-action: KILL
+  restrictions:
+    elytra: true
+    lava: true
+    ice: true
+    draining: true
+    armour-switching: true
+    armour-restocking: true
+    container-restocking: true
 
 cooldowns:
   shield: 5s
@@ -56,13 +70,13 @@ cooldowns:
 
 damage-caps:
   # Values are health points: 2 health points = 1 heart.
-  mace: 20.0
+  mace: 16.0
   spear: 16.0
   end_crystal: 24.0
   respawn_anchor: 24.0
   bed_explosion: 24.0
   bad_respawn_point: 24.0
-  tnt_minecart: 24.0
+  tnt_minecart: 20.0
   tnt: 20.0
   projectile: 20.0
   fall: 20.0
@@ -78,11 +92,18 @@ protections:
   new-player:
     enabled: false
     duration-seconds: 3600
+  post-death:
+    enabled: true
+    duration-seconds: 1800
+    block-item-pickup: true
+    block-container-access: true
 
 grace:
   active-on-startup: false
-  duration-seconds: 600
-  start-actions: []
+  duration-seconds: 3600
+  start-actions:
+    - dimension schedule end 604800
+    - anonymousdeaths start 604800
 
 death:
   spectator-on-death: false
@@ -92,7 +113,7 @@ death:
 
 dimensions:
   nether-locked: false
-  end-locked: false
+  end-locked: true
 
 packet-protections:
   anti-health-indicator: false
@@ -106,9 +127,12 @@ villagers:
   prevent-killing: false
 
 misc:
-  locator-bar: true
+  hide-invisible-deaths-until: ''
+  ban-bed-bombing: true
+  ban-respawn-anchor-bombing: true
+  breeze-rod-drop-multiplier: 2
   happy-ghast-speed-multiplier: 1.0
-  ban-tipped-arrows: false
+  ban-tipped-arrows: true
   ban-breach-swapping: false
   prevent-string-duper: false
   anti-draining: false

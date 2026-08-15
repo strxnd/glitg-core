@@ -10,7 +10,7 @@ softdepend: [ProtocolLib, packetevents, PacketEvents, WorldGuard, LifeStealZ, Co
 commands:
   glitgcore:
     description: GLITG Core administration
-    usage: /glitgcore <gui|reload|status|feature|debug|migration|version>
+    usage: /glitgcore <gui|reload|status|feature|debug|version>
     aliases: [glitg]
     permission: glitgcore.admin
   banitem:
@@ -25,6 +25,10 @@ commands:
     description: Show combat-tag time remaining
     usage: /combat
     permission: glitgcore.combat.status
+  protection:
+    description: Show post-death protection time remaining
+    usage: /protection
+    permission: glitgcore.protection.status
   cooldown:
     description: Query or reset cooldowns
     usage: /cooldown <status|reset> [player] [key]
@@ -91,6 +95,10 @@ commands:
     description: Query or change dimension locks
     usage: /dimension <status|lock|unlock|schedule> <nether|end> [seconds]
     permission: glitgcore.dimension.status
+  anonymousdeaths:
+    description: Control invisible-player death-message hiding
+    usage: /anonymousdeaths <status|start|stop> [seconds]
+    permission: glitgcore.timers.status
   uniqueitem:
     description: Query or edit global craft allocations
     usage: /uniqueitem <query|set|reset> <id> [value]
@@ -114,6 +122,8 @@ permissions:
     default: op
   glitgcore.combat.status:
     default: true
+  glitgcore.protection.status:
+    default: true
   glitgcore.cooldown.status:
     default: true
   glitgcore.cooldown.reset:
@@ -131,6 +141,10 @@ permissions:
   glitgcore.dimension.status:
     default: true
   glitgcore.dimension.manage:
+    default: op
+  glitgcore.timers.status:
+    default: true
+  glitgcore.timers.manage:
     default: op
   glitgcore.unique.manage:
     default: op

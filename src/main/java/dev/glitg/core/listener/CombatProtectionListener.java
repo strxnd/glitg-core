@@ -10,6 +10,7 @@ import dev.glitg.core.integration.IntegrationManager;
 import dev.glitg.core.message.MessageService;
 import dev.glitg.core.permission.BypassPolicy;
 import dev.glitg.core.service.GraceService;
+import dev.glitg.core.service.PostDeathProtectionService;
 import org.bukkit.Material;
 import org.bukkit.Bukkit;
 import org.bukkit.damage.DamageType;
@@ -36,6 +37,7 @@ import org.bukkit.projectiles.ProjectileSource;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -50,11 +52,14 @@ public final class CombatProtectionListener implements Listener {
     private final GraceService grace;
     private final IntegrationManager integrations;
     private final Clock clock;
+    private final PostDeathProtectionService postDeath;
     private volatile DamagePolicy damagePolicy;
     private final Map<UUID, Long> lastMovement = new HashMap<>();
+    private final Map<UUID, Instant> dangerUntil = new HashMap<>();
 
     public CombatProtectionListener(ConfigService configs, MessageService messages, CombatTagService combat,
-                                    CooldownService cooldowns, GraceService grace, IntegrationManager integrations, Clock clock) {
+                                    CooldownService cooldowns, GraceService grace, IntegrationManager integrations,
+                                    PostDeathProtectionService postDeath, Clock clock) {
         this.configs = configs;
         this.messages = messages;
         this.combat = combat;
@@ -62,6 +67,7 @@ public final class CombatProtectionListener implements Listener {
         this.grace = grace;
         this.integrations = integrations;
         this.clock = clock;
+        this.postDeath = postDeath;
         reload();
     }
 
@@ -77,6 +83,15 @@ public final class CombatProtectionListener implements Listener {
         Player victim = event.getEntity() instanceof Player player ? player : null;
         Player attacker = attackingPlayer(event.getDamager());
         if (victim != null && attacker != null && !victim.equals(attacker)) {
+            if (postDeath.isProtected(victim.getUniqueId())) {
+                event.setCancelled(true);
+                messages.send(attacker, "post-death-blocked");
+                return;
+            }
+            if (postDeath.isProtected(attacker.getUniqueId())) {
+                postDeath.revoke(attacker.getUniqueId());
+                messages.send(attacker, "post-death-revoked");
+            }
             if (grace.active() || protectedFrom(attacker, victim)) {
                 event.setCancelled(true);
                 return;
@@ -92,6 +107,7 @@ public final class CombatProtectionListener implements Listener {
                 }
             }
         }
+        if (victim != null && attacker == null) markDanger(victim, event.getFinalDamage());
         applyWeaponCooldown(event, attacker);
         applyCap(event, damageSource(event));
     }
@@ -100,6 +116,7 @@ public final class CombatProtectionListener implements Listener {
     public void onDamage(EntityDamageEvent event) {
         if (event instanceof EntityDamageByEntityEvent) return;
         String source = damageSource(event);
+        if (event.getEntity() instanceof Player player) markDanger(player, event.getFinalDamage());
         if (source != null) applyCap(event, source);
     }
 
@@ -161,14 +178,20 @@ public final class CombatProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         lastMovement.remove(event.getPlayer().getUniqueId());
-        if (!combat.isTagged(event.getPlayer().getUniqueId())) return;
+        UUID id = event.getPlayer().getUniqueId();
+        boolean combatTagged = combat.isTagged(id);
+        boolean dangerTagged = dangerActive(id);
+        if (!combatTagged && !dangerTagged) return;
         if (BypassPolicy.bypasses(configs, event.getPlayer(), "glitgcore.bypass.combat")) {
-            combat.clear(event.getPlayer().getUniqueId());
+            combat.clear(id);
+            dangerUntil.remove(id);
             return;
         }
-        String action = configs.main().getString("combat.disconnect-action", "KILL").toUpperCase(Locale.ROOT);
+        String action = configs.main().getString(combatTagged ? "combat.disconnect-action"
+                : "combat.danger-logging.disconnect-action", "KILL").toUpperCase(Locale.ROOT);
         if (action.equals("KILL") && !event.getPlayer().isDead()) event.getPlayer().setHealth(0.0);
-        combat.clear(event.getPlayer().getUniqueId());
+        combat.clear(id);
+        dangerUntil.remove(id);
     }
 
     private boolean protectedFrom(Player attacker, Player victim) {
@@ -216,6 +239,23 @@ public final class CombatProtectionListener implements Listener {
         long seconds = (cooldowns.remaining(player.getUniqueId(), action).toMillis() + 999) / 1000;
         messages.send(player, "cooldown", Map.of("action", action, "seconds", seconds));
         return false;
+    }
+
+    private void markDanger(Player player, double finalDamage) {
+        if (finalDamage <= 0 || !configs.main().getBoolean("combat.danger-logging.enabled", false)
+                || BypassPolicy.bypasses(configs, player, "glitgcore.bypass.combat")) return;
+        long seconds = configs.main().getLong("combat.danger-logging.duration-seconds", 15);
+        if (seconds <= 0) return;
+        boolean alreadyActive = dangerActive(player.getUniqueId());
+        dangerUntil.put(player.getUniqueId(), clock.instant().plusSeconds(seconds));
+        if (!alreadyActive) messages.send(player, "danger-active", Map.of("seconds", seconds));
+    }
+
+    private boolean dangerActive(UUID player) {
+        Instant expiry = dangerUntil.get(player);
+        if (expiry == null) return false;
+        if (!expiry.isAfter(clock.instant())) { dangerUntil.remove(player); return false; }
+        return true;
     }
 
     private void applyCap(EntityDamageEvent event, String source) {

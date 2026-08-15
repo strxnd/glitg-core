@@ -16,13 +16,12 @@ import dev.glitg.core.service.AltarRitualService;
 import dev.glitg.core.service.DimensionService;
 import dev.glitg.core.service.GraceService;
 import dev.glitg.core.service.KitService;
+import dev.glitg.core.service.PostDeathProtectionService;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Registry;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.World;
@@ -68,6 +67,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
     private final SqliteDatabase database;
     private final AltarRitualService altars;
     private final AdminGuiService gui;
+    private final PostDeathProtectionService postDeath;
     private final Map<UUID, UUID> lastMessages = new HashMap<>();
     private final Set<UUID> vanished = new HashSet<>();
     private final NamespacedKey vanishedKey;
@@ -75,10 +75,12 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
     public CommandRouter(GLITGCorePlugin plugin, ConfigService configs, MessageService messages, RuleEngine rules,
                          EnchantPolicyService enchants, PotionPolicyService potions, CombatTagService combat,
                          CooldownService cooldowns, GraceService grace, DimensionService dimensions, KitService kits,
-                         UniqueItemStore uniqueItems, SqliteDatabase database, AltarRitualService altars, AdminGuiService gui) {
+                         UniqueItemStore uniqueItems, SqliteDatabase database, AltarRitualService altars, AdminGuiService gui,
+                         PostDeathProtectionService postDeath) {
         this.plugin=plugin; this.configs=configs; this.messages=messages; this.rules=rules; this.enchants=enchants; this.potions=potions;
         this.combat=combat; this.cooldowns=cooldowns; this.grace=grace; this.dimensions=dimensions; this.kits=kits;
         this.uniqueItems=uniqueItems; this.database=database; this.altars=altars; this.gui=gui;
+        this.postDeath=postDeath;
         vanishedKey = new NamespacedKey(plugin, "vanished");
     }
 
@@ -89,6 +91,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
                 case "banitem" -> banItem(sender, args);
                 case "itemlimit" -> itemLimit(sender, args);
                 case "combat" -> combat(sender);
+                case "protection" -> protection(sender);
                 case "cooldown" -> cooldown(sender, args);
                 case "grace" -> graceStatus(sender);
                 case "start" -> start(sender, args);
@@ -104,6 +107,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
                 case "setrespawnspawn" -> setSpawn(sender, false);
                 case "setcustomspawn" -> setSpawn(sender, true);
                 case "dimension" -> dimension(sender, args);
+                case "anonymousdeaths" -> anonymousDeaths(sender, args);
                 case "uniqueitem" -> unique(sender, args);
                 case "deathban" -> deathBan(sender, args);
                 case "saltar" -> altar(sender, args);
@@ -129,7 +133,6 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
             }
             case "recipe" -> { if (args.length < 2) throw new IllegalArgumentException("Usage: /glitgcore recipe <id>"); gui.openRecipeEditor(requirePlayer(sender), args[1]); }
             case "debug" -> sender.sendMessage(messages.raw("<gray>Paper " + Bukkit.getMinecraftVersion() + ", Java " + Runtime.version() + ", DB open, scheduler tasks managed.</gray>"));
-            case "migration" -> sender.sendMessage(messages.raw("<green>Configuration schema " + ConfigService.CURRENT_VERSION + " and SQLite schema 1 are current.</green>"));
             case "version" -> sender.sendMessage(messages.raw("<gold>GLITG Core " + plugin.getPluginMeta().getVersion() + " for Paper 26.2 / Java 25</gold>"));
             default -> throw new IllegalArgumentException("Unknown subcommand: " + sub);
         }
@@ -151,6 +154,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
     }
 
     private boolean combat(CommandSender sender){Player player=requirePlayer(sender);long seconds=(combat.remaining(player.getUniqueId()).toMillis()+999)/1000;messages.send(player,"combat-remaining",Map.of("seconds",seconds));return true;}
+    private boolean protection(CommandSender sender){Player player=requirePlayer(sender);long seconds=(postDeath.remaining(player.getUniqueId()).toMillis()+999)/1000;messages.send(player,"post-death-remaining",Map.of("seconds",seconds));return true;}
 
     private boolean cooldown(CommandSender sender,String[] args){
         Player self=requirePlayer(sender); if(args.length==0||args[0].equalsIgnoreCase("status")){String key=args.length>1?args[1]:"ender_pearl";long seconds=(cooldowns.remaining(self.getUniqueId(),key).toMillis()+999)/1000;sender.sendMessage(messages.raw("<gray>"+key+": "+seconds+"s</gray>"));return true;}
@@ -158,7 +162,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
     }
 
     private boolean graceStatus(CommandSender sender){sender.sendMessage(messages.raw("<gray>Grace "+(grace.active()?"active for "+grace.remaining().toSeconds()+"s":"inactive")+".</gray>"));return true;}
-    private boolean start(CommandSender sender,String[] args){long seconds=args.length>0?Long.parseLong(args[0]):configs.main().getLong("grace.duration-seconds",600);grace.start(Duration.ofSeconds(seconds));return true;}
+    private boolean start(CommandSender sender,String[] args){long seconds=args.length>0?Long.parseLong(args[0]):configs.main().getLong("grace.duration-seconds",3600);grace.start(Duration.ofSeconds(seconds));return true;}
     private boolean stopGrace(CommandSender sender){grace.stop();return true;}
 
     private boolean kit(CommandSender sender,String[] args)throws IOException{
@@ -209,6 +213,29 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
         return true;
     }
 
+    private boolean anonymousDeaths(CommandSender sender, String[] args) throws IOException {
+        if (args.length < 1) throw new IllegalArgumentException("Usage: /anonymousdeaths <status|start|stop> [seconds]");
+        switch (args[0].toLowerCase(Locale.ROOT)) {
+            case "status" -> sender.sendMessage(messages.raw("<gray>Invisible-player deaths are hidden until: "
+                    + configs.main().getString("misc.hide-invisible-deaths-until", "disabled") + ".</gray>"));
+            case "start" -> {
+                requirePermission(sender, "glitgcore.timers.manage");
+                if (args.length < 2) throw new IllegalArgumentException("Seconds required");
+                long seconds = Long.parseLong(args[1]);
+                if (seconds <= 0) throw new IllegalArgumentException("Seconds must be positive");
+                configs.main().set("misc.hide-invisible-deaths-until", java.time.Instant.now().plusSeconds(seconds).toString());
+                configs.save("config.yml");
+            }
+            case "stop" -> {
+                requirePermission(sender, "glitgcore.timers.manage");
+                configs.main().set("misc.hide-invisible-deaths-until", "");
+                configs.save("config.yml");
+            }
+            default -> throw new IllegalArgumentException("Unknown anonymous-death operation");
+        }
+        return true;
+    }
+
     private boolean unique(CommandSender sender,String[]args){if(args.length<2)throw new IllegalArgumentException("Usage: /uniqueitem <query|set|reset> <id> [value]");switch(args[0].toLowerCase(Locale.ROOT)){case"query"->sender.sendMessage(messages.raw("<gray>"+args[1]+" used: "+uniqueItems.used(args[1])+"</gray>"));case"set"->{if(args.length<3)throw new IllegalArgumentException("Value required");uniqueItems.set(args[1],Integer.parseInt(args[2]));}case"reset"->uniqueItems.set(args[1],0);default->throw new IllegalArgumentException("Unknown operation");}return true;}
 
     private boolean deathBan(CommandSender sender,String[]args)throws SQLException{if(args.length<1)throw new IllegalArgumentException("Usage: /deathban <status|clear> [player]");Player target=args.length>1?requireOnline(args[1]):requirePlayer(sender);if(args[0].equalsIgnoreCase("clear")){database.clearDeathBan(target.getUniqueId());sender.sendMessage(messages.raw("<green>Death ban cleared.</green>"));}else{long expiry=database.deathBanExpiry(target.getUniqueId());sender.sendMessage(messages.raw("<gray>Death ban remaining: "+Math.max(0,(expiry-System.currentTimeMillis()+999)/1000)+"s</gray>"));}return true;}
@@ -219,7 +246,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
 
     @EventHandler public void onJoin(PlayerJoinEvent event){for(UUID id:vanished){Player hidden=Bukkit.getPlayer(id);if(hidden!=null&&!event.getPlayer().hasPermission("glitgcore.admin.vanish.see"))event.getPlayer().hidePlayer(plugin,hidden);}}
 
-    @Override public List<String> onTabComplete(CommandSender sender,Command command,String alias,String[]args){String name=command.getName().toLowerCase(Locale.ROOT);List<String> candidates=switch(name){case"glitgcore"->args.length==1?List.of("gui","reload","status","feature","recipe","debug","migration","version"):List.of();case"banitem"->Arrays.stream(ItemAction.values()).map(Enum::name).toList();case"kit"->List.of("save","load","clear","resetplayer","join","give");case"dimension"->args.length==1?List.of("status","lock","unlock","schedule"):args.length==2?List.of("nether","end"):List.of();case"uniqueitem"->List.of("query","set","reset");case"deathban"->List.of("status","clear");case"saltar"->List.of("place","remove","list","info");case"cooldown"->List.of("status","reset");default->Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();};String prefix=args.length==0?"":args[args.length-1].toLowerCase(Locale.ROOT);return candidates.stream().filter(value->value.toLowerCase(Locale.ROOT).startsWith(prefix)).sorted().toList();}
+    @Override public List<String> onTabComplete(CommandSender sender,Command command,String alias,String[]args){String name=command.getName().toLowerCase(Locale.ROOT);List<String> candidates=switch(name){case"glitgcore"->args.length==1?List.of("gui","reload","status","feature","recipe","debug","version"):List.of();case"banitem"->Arrays.stream(ItemAction.values()).map(Enum::name).toList();case"kit"->List.of("save","load","clear","resetplayer","join","give");case"dimension"->args.length==1?List.of("status","lock","unlock","schedule"):args.length==2?List.of("nether","end"):List.of();case"anonymousdeaths"->List.of("status","start","stop");case"uniqueitem"->List.of("query","set","reset");case"deathban"->List.of("status","clear");case"saltar"->List.of("place","remove","list","info");case"cooldown"->List.of("status","reset");default->Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();};String prefix=args.length==0?"":args[args.length-1].toLowerCase(Locale.ROOT);return candidates.stream().filter(value->value.toLowerCase(Locale.ROOT).startsWith(prefix)).sorted().toList();}
 
     private int enabledCount(){var section=configs.main().getConfigurationSection("features");return section==null?0:(int)section.getKeys(false).stream().filter(key->section.getBoolean(key)).count();}
     private static boolean parseBoolean(String raw){return switch(raw.toLowerCase(Locale.ROOT)){case"on","true","enable","enabled"->true;case"off","false","disable","disabled"->false;default->throw new IllegalArgumentException("Expected on or off");};}

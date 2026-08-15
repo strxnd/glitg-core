@@ -7,6 +7,7 @@ import dev.glitg.core.permission.BypassPolicy;
 import dev.glitg.core.persistence.SqliteDatabase;
 import dev.glitg.core.service.DimensionService;
 import dev.glitg.core.service.KitService;
+import dev.glitg.core.service.PostDeathProtectionService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
@@ -53,10 +54,12 @@ public final class LifecycleGameplayListener implements Listener {
     private final KitService kits;
     private final SqliteDatabase database;
     private final Clock clock;
+    private final PostDeathProtectionService postDeath;
     private final Map<UUID, List<ItemStack>> immortalItems = new HashMap<>();
 
     public LifecycleGameplayListener(JavaPlugin plugin, ConfigService configs, MessageService messages, RuleEngine rules,
-                                     DimensionService dimensions, KitService kits, SqliteDatabase database, Clock clock) {
+                                     DimensionService dimensions, KitService kits, SqliteDatabase database,
+                                     PostDeathProtectionService postDeath, Clock clock) {
         this.plugin = plugin; this.configs = configs;
         this.messages = messages;
         this.rules = rules;
@@ -64,6 +67,7 @@ public final class LifecycleGameplayListener implements Listener {
         this.kits = kits;
         this.database = database;
         this.clock = clock;
+        this.postDeath = postDeath;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -89,6 +93,7 @@ public final class LifecycleGameplayListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        postDeath.restore(player.getUniqueId());
         try {
             long expiry = database.deathBanExpiry(player.getUniqueId());
             if (expiry > clock.millis()) {
@@ -127,6 +132,15 @@ public final class LifecycleGameplayListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+        boolean hideDeath = shouldHideDeath(event);
+        if (hideDeath) event.deathMessage(null);
+        if (configs.enabled("protections") && configs.main().getBoolean("protections.post-death.enabled", false)) {
+            long seconds = configs.main().getLong("protections.post-death.duration-seconds", 1800);
+            if (seconds > 0) {
+                postDeath.grant(player.getUniqueId(), java.time.Duration.ofSeconds(seconds));
+                messages.send(player, "post-death-granted", Map.of("seconds", seconds));
+            }
+        }
         if (configs.enabled("protected-items")) {
             List<ItemStack> saved = new ArrayList<>();
             event.getDrops().removeIf(item -> {
@@ -138,7 +152,7 @@ public final class LifecycleGameplayListener implements Listener {
         }
         if (configs.enabled("death-system")) {
             String custom = configs.main().getString("death.custom-message", "");
-            if (!custom.isBlank()) event.deathMessage(messages.raw(custom.replace("<player>", player.getName())));
+            if (!custom.isBlank() && !hideDeath) event.deathMessage(messages.raw(custom.replace("<player>", player.getName())));
             String soundName = configs.main().getString("death.sound", "");
             if (!soundName.isBlank()) {
                 NamespacedKey key = NamespacedKey.fromString(soundName.contains(":") ? soundName : "minecraft:" + soundName.toLowerCase(Locale.ROOT));
@@ -152,6 +166,22 @@ public final class LifecycleGameplayListener implements Listener {
                 catch (SQLException exception) { player.getServer().getLogger().severe("Could not persist death ban: " + exception.getMessage()); }
             }
         }
+    }
+
+    private boolean shouldHideDeath(PlayerDeathEvent event) {
+        if (!configs.enabled("miscellaneous")) return false;
+        String raw = configs.main().getString("misc.hide-invisible-deaths-until", "");
+        if (raw == null || raw.isBlank()) return false;
+        try {
+            if (!clock.instant().isBefore(java.time.Instant.parse(raw))) return false;
+        } catch (java.time.format.DateTimeParseException exception) {
+            plugin.getLogger().warning("Invalid misc.hide-invisible-deaths-until: " + raw);
+            return false;
+        }
+        Player dead = event.getEntity();
+        Player killer = dead.getKiller();
+        return dead.hasPotionEffect(org.bukkit.potion.PotionEffectType.INVISIBILITY)
+                || (killer != null && killer.hasPotionEffect(org.bukkit.potion.PotionEffectType.INVISIBILITY));
     }
 
     @EventHandler(priority = EventPriority.HIGH)

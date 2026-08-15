@@ -7,6 +7,7 @@ import dev.glitg.core.crafting.CraftingService;
 import dev.glitg.core.crafting.RecipeDefinition;
 import dev.glitg.core.domain.ItemAction;
 import dev.glitg.core.domain.ItemRule;
+import dev.glitg.core.domain.ItemLimitScope;
 import dev.glitg.core.item.EnchantPolicyService;
 import dev.glitg.core.item.ItemStackCodec;
 import dev.glitg.core.item.PotionPolicyService;
@@ -27,6 +28,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
@@ -291,9 +293,14 @@ public final class AdminGuiService implements Listener {
             ItemRule matcher = limit.matcher();
             List<Component> lore = List.of(
                     text("<dark_gray>ID:</dark_gray> <gray>" + limit.id() + "</gray>"),
-                    text("<dark_gray>Maximum:</dark_gray> <white>" + limit.maximum() + "</white>"),
+                    text("<dark_gray>Maximum:</dark_gray> <white>" + (limit.maximumStacks() == null ? limit.maximum() : limit.maximumStacks() + " stacks") + "</white>"),
+                    text("<dark_gray>Group:</dark_gray> <white>" + limit.group() + "</white>"),
+                    text("<dark_gray>Scope:</dark_gray> <white>" + limit.scope() + "</white>"),
                     Component.empty(),
                     text("<gold>› Left-click</gold> <white>Change maximum</white>"),
+                    text("<yellow>› Shift-left</yellow> <white>Cycle scope</white>"),
+                    text("<yellow>› Shift-right</yellow> <white>Change group</white>"),
+                    text("<yellow>› Middle-click</yellow> <white>Set stack maximum</white>"),
                     text("<red>› Right-click</red> <white>Remove</white>"));
             inventory.setItem(CONTENT_SLOTS[index], icon(material(matcher.material()), text("<white>" + friendly(matcher.material()) + "</white>"), lore, true));
         }
@@ -671,7 +678,7 @@ public final class AdminGuiService implements Listener {
         openItemRules(player, 0);
     }
 
-    private void handleItemLimits(Player player, InventoryClickEvent event, MenuHolder holder) {
+    private void handleItemLimits(Player player, InventoryClickEvent event, MenuHolder holder) throws IOException {
         int slot = event.getRawSlot();
         if (pagedNavigation(player, slot, holder, rules.limits().size(), page -> openItemLimits(player, page), () -> openFeature(player, GuiCatalog.FEATURES.get("item-limits")))) return;
         if (slot == 49) {
@@ -685,7 +692,17 @@ public final class AdminGuiService implements Listener {
         int position = holder.page * PAGE_SIZE + index;
         if (index < 0 || position >= rules.limits().size()) return;
         RuleEngine.Limit limit = rules.limits().get(position);
-        if (event.isRightClick()) confirm(player, "Remove item limit?", "Players will no longer be limited by " + limit.id() + ".",
+        if (event.isShiftClick() && event.isLeftClick()) {
+            ItemLimitScope[] scopes = ItemLimitScope.values();
+            rules.setLimitScope(limit.id(), scopes[(limit.scope().ordinal() + 1) % scopes.length]);
+            openItemLimits(player, holder.page);
+        } else if (event.isShiftClick() && event.isRightClick()) {
+            prompt(player, "Enter the shared group ID for " + limit.id() + ".", GuiInputParser::definitionId,
+                    (target, value) -> rules.setLimitGroup(limit.id(), (String) value), target -> openItemLimits(target, holder.page));
+        } else if (event.getClick() == ClickType.MIDDLE) {
+            prompt(player, "Enter a maximum number of stacks for " + limit.id() + ".", GuiInputParser::nonNegativeInteger,
+                    (target, value) -> rules.setLimitMaximumStacks(limit.id(), (Integer) value), target -> openItemLimits(target, holder.page));
+        } else if (event.isRightClick()) confirm(player, "Remove item limit?", "Players will no longer be limited by " + limit.id() + ".",
                 target -> { rules.removeLimit(limit.id()); openItemLimits(target, holder.page); },
                 target -> openItemLimits(target, holder.page));
         else prompt(player, "Enter a new maximum for " + limit.id() + ".", GuiInputParser::nonNegativeInteger,

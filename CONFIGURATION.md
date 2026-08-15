@@ -1,6 +1,6 @@
 # Configuration reference
 
-Every file has `config-version: 1`. GLITG Core copies a timestamped backup before a schema migration, preserves unknown keys, rejects future schemas, and retains the prior in-memory configuration if reload validation fails. Static definitions stay in YAML; dynamic allocation, ban, altar, ritual, and timer state stays in SQLite.
+Every file must use `config-version: 1`. GLITG Core rejects any other schema and never rewrites or upgrades configuration. If reload validation fails, the prior in-memory configuration remains active. Static definitions stay in YAML; dynamic allocation, ban, protection, altar, ritual, and timer state stays in SQLite.
 
 ## In-game control console
 
@@ -14,13 +14,14 @@ The interface uses a shared obsidian, antique-gold, champagne, ivory, silk, and 
 
 | Path | Default | Meaning/unit |
 |---|---:|---|
-| `config-version` | `1` | Schema version |
+| `config-version` | `1` | Exact supported schema version |
 | `locale` | `en` | Message locale identifier |
 | `update-checker` | `false` | Reserved public update notice toggle; no auto-download |
 | `features.<key>` | mixed | Independent master switch; uncertain/destructive mechanics default off |
-| `items.limit-scope` | `PLAYER` | `PLAYER` compatibility scope; architecture accepts future scopes |
+| `items.limit-scope` | `CARRIED` | Scope assigned to new limits: `CARRIED`, `STORED`, or `COMBAT_LOADOUT` |
 | `items.include-ender-chest` | `false` | Include ender chest in player quantity count |
 | `items.overflow` | `BLOCK` | Deterministic action block; no silent deletion |
+| `items.audit-insertions`, `.audit-interval-ticks` | policy / `100` | Recoverably drop prohibited or excess items inserted outside normal event paths |
 | `features.operator-bypass` | `false` | Sole authority for operator gameplay bypass; granular bypass permissions remain available to non-operators |
 | `items.traverse-shulkers`, `.traverse-bundles` | `true` | Nested bypass checks |
 | `combat.duration-seconds` | `15` | Absolute combat-tag duration |
@@ -28,6 +29,8 @@ The interface uses a shared obsidian, antique-gold, champagne, ivory, silk, and 
 | `combat.whitelisted-commands` | messaging/status | Command labels without leading slash |
 | `combat.block-safe-regions` | `true` | Prevent entry to provider-reported safe regions |
 | `combat.disconnect-action` | `KILL` | `KILL` or `NONE` |
+| `combat.danger-logging.*` | policy | Recent environmental-damage timer and disconnect action |
+| `combat.restrictions.*` | policy | Tagged-player Elytra, lava, ice, draining, armour, pickup, and container restrictions |
 | `cooldowns.<action>` | `3s`–`60s` | Duration string: `ms`, `s`, `m`, `h`, `d` |
 | `damage-caps.<source>` | `16.0`–`24.0` | Maximum final health points; 2 points = 1 heart |
 | `protections.afk.enabled` | `false` | AFK incoming/outgoing protection |
@@ -37,8 +40,9 @@ The interface uses a shared obsidian, antique-gold, champagne, ivory, silk, and 
 | `protections.naked.require-empty-armor` | `true` | Naked predicate |
 | `protections.new-player.enabled` | `false` | First-played protection |
 | `protections.new-player.duration-seconds` | `3600` | New-player protection duration |
+| `protections.post-death.*` | policy / `1800` | Durable protection, outgoing-attack revocation, and protected loot/container restrictions |
 | `grace.active-on-startup` | `false` | Start a fresh grace timer on enable if none is persisted |
-| `grace.duration-seconds` | `600` | Default timer and bossbar scale |
+| `grace.duration-seconds` | `3600` | Default timer and bossbar scale |
 | `grace.start-actions` | `[]` | Console commands dispatched by `/start`; optional leading slash |
 | `death.spectator-on-death` | `false` | Set spectator on respawn |
 | `death.death-ban-seconds` | `0` | Durable death-ban length; zero disables |
@@ -49,7 +53,9 @@ The interface uses a shared obsidian, antique-gold, champagne, ivory, silk, and 
 | `villagers.infinite-restock` | `false` | Event-driven recipe reset |
 | `villagers.anchor-on-click` | `false` | Right-click disables AI |
 | `villagers.prevent-killing` | `false` | Cancel direct player damage |
-| `misc.locator-bar` | `true` | 26.2 locator-bar game rule when misc is enabled |
+| `misc.hide-invisible-deaths-until` | empty | Independent ISO-8601 cutoff for invisible killer/victim death messages |
+| `misc.ban-bed-bombing`, `.ban-respawn-anchor-bombing` | policy | Cancel explosive use in unsafe dimensions |
+| `misc.breeze-rod-drop-multiplier` | `2` | Event-driven Breeze Rod drop multiplier |
 | `misc.happy-ghast-speed-multiplier` | `1.0` | One-time base flying-speed multiplier |
 | `misc.ban-tipped-arrows` | `false` | Cancel potion arrows at launch |
 | `misc.ban-breach-swapping` | `false` | Block Breach hand swap |
@@ -66,18 +72,17 @@ Feature keys are: `item-rules`, `item-limits`, `potion-policy`, `enchant-policy`
 
 `rules.<id>` accepts `enabled`, `actions`, `material`, `potion`, `custom-model-data`, `persistent-data`, `enchantments`, and `tags`. Omitted matcher fields are wildcards; all present fields must match. Actions are `ALL`, `CRAFT`, `INTERACT`, `DROPPING`, `PICKUP`, `INVENTORY_MOVE`, `STORAGE`, `TRADE`, and `EQUIP`.
 
-`limits.<id>` uses the same matcher plus `maximum`. `protected.<id>` uses the same matcher plus `immortal`, `glowing`, and `stop-storage`. `unique.<id>` accepts `enabled`, `recipe-key` (or `recipe-id`), and global craft `limit`.
+`limits.<id>` uses the same matcher plus `maximum` or `maximum-stacks`, optional shared `group`, and `scope` (`CARRIED`, `STORED`, or `COMBAT_LOADOUT`). Limits sharing a group are counted together. `protected.<id>` uses the same matcher plus `immortal`, `glowing`, and `stop-storage`. `unique.<id>` accepts `enabled`, `recipe-key` (or `recipe-id`), and global craft `limit`.
 
-`potion-policy` accepts `banned` namespaced potion keys, `ban-tier-1`, `ban-tier-2`, and a forward-compatible `maximum-amplifier` map. `golden-head` and `warden-heart` expose their material/effect/drop defaults.
+`potion-policy` accepts banned base potion keys, banned effect keys, tier bans, per-effect `maximum-amplifier`, and `duration-rules.<id>` with `effect`, optional `amplifier`, and minimum/maximum ticks. Validation applies to base and custom effects on drinkable, splash, lingering, and tipped-arrow ItemStacks. `golden-head` and `warden-heart` expose their material/effect/drop defaults.
 
-Modern custom-model-data components are fingerprinted into safe matcher tags (`cmd-float:`, `cmd-string:`, `cmd-flag:`, `cmd-color:`); the integer field remains compatible with legacy model values. PDC matching reads only explicitly configured string keys and never rewrites unrelated data.
+Modern custom-model-data components are fingerprinted into safe matcher tags (`cmd-float:`, `cmd-string:`, `cmd-flag:`, `cmd-color:`); the integer field matches an integral first float component. PDC matching reads only explicitly configured string keys and never rewrites unrelated data.
 
 ## `enchants.yml`
 
 - `banned`: namespaced enchantment keys.
 - `maximum-levels.<key>`: maximum accepted integer level.
 - `exempt-materials`: exact material exemptions.
-- `allow-existing-overlevelled-custom-items`: documents the compatibility policy; GLITG Core never scans and downgrades arbitrary inventories.
 
 ## `recipes.yml`
 

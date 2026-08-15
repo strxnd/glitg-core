@@ -8,7 +8,7 @@ Run:
 ./gradlew clean test build
 ```
 
-JUnit 5 tests cover exact/potion/PDC/model/enchant matching, enchant maximums and exemptions, nested traversal limits, quantity/overflow math, absolute cooldowns, combat transitions, protection revocation, damage cap units, config durations/validation/migration, 100-way unique allocation, SQLite migration/reopen, death-ban/state persistence, and recipe definition validation. JaCoCo HTML/XML reports are generated under `build/reports/jacoco/test/`.
+JUnit 5 tests cover exact/potion/PDC/model/enchant matching, effect/amplifier/duration potion policy, enchant maximums and exemptions, nested traversal limits, scoped-limit behavior, quantity/overflow math, absolute cooldowns, combat transitions, protection revocation, damage cap units, strict config timestamps/validation, 100-way unique allocation, SQLite initialization/reopen, death-ban/protection/timer persistence, and recipe definition validation. JaCoCo HTML/XML reports are generated under `build/reports/jacoco/test/`.
 
 ## Real Paper smoke test
 
@@ -29,5 +29,6 @@ The script uses Paper's official Fill v3 service with a descriptive User-Agent (
 - Test potion base/custom effects and splash/lingering/tipped forms; books and unusual enchant combinations.
 - Race the last unique craft with two real players; restart during a ritual and grace timer.
 - Exercise combat logout, commands, WorldGuard safe-region entry, arrows against Naked Protection, outgoing attacks from every protected state, portals/pearls/boats/API teleports.
+- Exercise post-death restart persistence and attack revocation; combat Elytra/lava/ice/sponge/bucket/armour/container restrictions; environmental danger logout; independent End/death-message timers; bombing prevention; and Breeze drop multiplication.
 - Verify exact custom ItemStack names/lore/components/attributes/PDC survive kit, recipe, immortal-item, and GUI workflows.
 - Repeat with LifeStealZ, CoreProtect, Grim, PacketEvents/ProtocolLib, and WorldGuard separately and together.

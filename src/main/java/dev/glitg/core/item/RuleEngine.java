@@ -4,6 +4,7 @@ import dev.glitg.core.config.ConfigService;
 import dev.glitg.core.domain.ItemAction;
 import dev.glitg.core.domain.ItemDescriptor;
 import dev.glitg.core.domain.ItemMatcher;
+import dev.glitg.core.domain.ItemLimitScope;
 import dev.glitg.core.domain.ItemRule;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
@@ -48,6 +49,15 @@ public final class RuleEngine {
         return limits.stream().filter(limit -> matcher.matches(limit.matcher(), descriptor)).findFirst().orElse(null);
     }
 
+    public List<Limit> matchingLimits(ItemStack stack) {
+        ItemDescriptor descriptor = adapter.describe(stack);
+        return limits.stream().filter(limit -> matcher.matches(limit.matcher(), descriptor)).toList();
+    }
+
+    public List<Limit> limitGroup(Limit limit) {
+        return limits.stream().filter(candidate -> candidate.group().equals(limit.group()) && candidate.scope() == limit.scope()).toList();
+    }
+
     public ProtectedDefinition protectedDefinition(ItemStack stack) {
         ItemDescriptor descriptor = adapter.describe(stack);
         return protectedItems.stream().filter(definition -> matcher.matches(definition.matcher(), descriptor)).findFirst().orElse(null);
@@ -87,6 +97,9 @@ public final class RuleEngine {
         var yaml = configs.file("items.yml");
         yaml.set(path + ".enabled", true);
         yaml.set(path + ".maximum", maximum);
+        yaml.set(path + ".maximum-stacks", null);
+        yaml.set(path + ".scope", ItemLimitScope.parse(configs.main().getString("items.limit-scope", "CARRIED")).name());
+        yaml.set(path + ".group", id);
         writeMatcher(yaml, path, item);
         configs.save("items.yml");
         reload();
@@ -105,6 +118,28 @@ public final class RuleEngine {
     public synchronized void setLimitMaximum(String id, int maximum) throws IOException {
         if (maximum < 0) throw new IllegalArgumentException("limit must be non-negative");
         configs.file("items.yml").set("limits." + id + ".maximum", maximum);
+        configs.file("items.yml").set("limits." + id + ".maximum-stacks", null);
+        configs.save("items.yml");
+        reload();
+    }
+
+    public synchronized void setLimitMaximumStacks(String id, int stacks) throws IOException {
+        if (stacks < 0) throw new IllegalArgumentException("stack limit must be non-negative");
+        configs.file("items.yml").set("limits." + id + ".maximum-stacks", stacks);
+        configs.file("items.yml").set("limits." + id + ".maximum", 0);
+        configs.save("items.yml");
+        reload();
+    }
+
+    public synchronized void setLimitScope(String id, ItemLimitScope scope) throws IOException {
+        configs.file("items.yml").set("limits." + id + ".scope", scope.name());
+        configs.save("items.yml");
+        reload();
+    }
+
+    public synchronized void setLimitGroup(String id, String group) throws IOException {
+        if (group == null || !group.matches("[A-Za-z0-9._-]+")) throw new IllegalArgumentException("group must be a simple ID");
+        configs.file("items.yml").set("limits." + id + ".group", group);
         configs.save("items.yml");
         reload();
     }
@@ -157,7 +192,10 @@ public final class RuleEngine {
         var parsed = new ArrayList<Limit>();
         for (String id : root.getKeys(false)) {
             ConfigurationSection section = root.getConfigurationSection(id);
-            if (section != null) parsed.add(new Limit(id, section.getInt("maximum", 0), parseMatcher(id, section, Set.of(ItemAction.ALL))));
+            if (section != null) parsed.add(new Limit(id, section.getInt("maximum", 0),
+                    section.contains("maximum-stacks") ? section.getInt("maximum-stacks") : null,
+                    section.getString("group", id), ItemLimitScope.parse(section.getString("scope", "CARRIED")),
+                    parseMatcher(id, section, Set.of(ItemAction.ALL))));
         }
         return List.copyOf(parsed);
     }
@@ -210,6 +248,20 @@ public final class RuleEngine {
     public List<Limit> limits() { return limits; }
     public List<ProtectedDefinition> protectedItems() { return protectedItems; }
 
-    public record Limit(String id, int maximum, ItemRule matcher) {}
+    public record Limit(String id, int maximum, Integer maximumStacks, String group,
+                        ItemLimitScope scope, ItemRule matcher) {
+        public Limit {
+            if (maximum < 0 || (maximumStacks != null && maximumStacks < 0)) {
+                throw new IllegalArgumentException("item limit cannot be negative");
+            }
+            group = group == null || group.isBlank() ? id : group;
+        }
+
+        public int maximumFor(ItemStack item) {
+            if (maximumStacks == null) return maximum;
+            long value = (long) maximumStacks * Math.max(1, item.getMaxStackSize());
+            return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
+        }
+    }
     public record ProtectedDefinition(String id, boolean immortal, boolean glowing, boolean stopStorage, ItemRule matcher) {}
 }

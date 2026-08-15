@@ -21,4 +21,13 @@ class ItemTraversalAndLimitTest {
         assertEquals(1,new ItemTraversal(0,10).flatten(List.of(root)).size());
         assertThrows(IllegalStateException.class,()->new ItemTraversal(4,1).flatten(List.of(root)));
     }
+    @Test void groupedVariantsShareOneMaximum(){
+        var regular=new ItemRule("regular",true,Set.of(ItemAction.ALL),"potion","healing",null,Map.of(),Map.of(),Set.of());
+        var splash=new ItemRule("splash",true,Set.of(ItemAction.ALL),"splash_potion","healing",null,Map.of(),Map.of(),Set.of());
+        var inventory=List.of(new ItemDescriptor("potion","healing",null,Map.of(),Map.of(),Set.of(),4));
+        var incoming=new ItemDescriptor("splash_potion","healing",null,Map.of(),Map.of(),Set.of(),3);
+        var decision=new ItemLimitCalculator(new ItemMatcher()).evaluateGroup(List.of(regular,splash),6,inventory,incoming);
+        assertFalse(decision.allowed());
+        assertEquals(1,decision.overflow());
+    }
 }
