@@ -19,6 +19,11 @@ public final class ConfigValidator {
         validateNonNegative(values, "protections.post-death.duration-seconds", errors);
         validateNonNegative(values, "combat.danger-logging.duration-seconds", errors);
         validateNonNegative(values, "items.audit-interval-ticks", errors);
+        validateNonNegative(values, "xp-clumps.radius", errors);
+        validateNonNegative(values, "xp-clumps.maximum-experience", errors);
+        validateNonNegative(values, "shield-tweaks.disable-cooldown-ticks", errors);
+        validateNonNegative(values, "pvp.damage-multiplier", errors);
+        validateRange(values, "sleep.players-sleeping-percentage", 0, 100, errors);
         Object multiplier = values.get("misc.breeze-rod-drop-multiplier");
         if (multiplier != null && (!(multiplier instanceof Number number) || number.intValue() < 1)) {
             errors.add("misc.breeze-rod-drop-multiplier must be an integer >= 1");
@@ -38,6 +43,13 @@ public final class ConfigValidator {
         Object value = values.get(path);
         if (value != null && (!(value instanceof Number number) || number.doubleValue() < 0)) {
             errors.add(path + " must be a non-negative number");
+        }
+    }
+
+    private static void validateRange(Map<String, Object> values, String path, double minimum, double maximum, List<String> errors) {
+        Object value = values.get(path);
+        if (value != null && (!(value instanceof Number number) || number.doubleValue() < minimum || number.doubleValue() > maximum)) {
+            errors.add(path + " must be between " + minimum + " and " + maximum);
         }
     }
 }

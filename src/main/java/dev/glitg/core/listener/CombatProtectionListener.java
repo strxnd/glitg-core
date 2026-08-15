@@ -18,6 +18,7 @@ import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
+import org.bukkit.entity.Tameable;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
@@ -26,12 +27,15 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityPlaceEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.ProjectileSource;
 
@@ -56,6 +60,8 @@ public final class CombatProtectionListener implements Listener {
     private volatile DamagePolicy damagePolicy;
     private final Map<UUID, Long> lastMovement = new HashMap<>();
     private final Map<UUID, Instant> dangerUntil = new HashMap<>();
+    private final Map<UUID, Attribution> entityOwners = new HashMap<>();
+    private final Map<String, LocationAttribution> explosionLocations = new HashMap<>();
 
     public CombatProtectionListener(ConfigService configs, MessageService messages, CombatTagService combat,
                                     CooldownService cooldowns, GraceService grace, IntegrationManager integrations,
@@ -81,32 +87,12 @@ public final class CombatProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPvp(EntityDamageByEntityEvent event) {
         Player victim = event.getEntity() instanceof Player player ? player : null;
-        Player attacker = attackingPlayer(event.getDamager());
-        if (victim != null && attacker != null && !victim.equals(attacker)) {
-            if (postDeath.isProtected(victim.getUniqueId())) {
-                event.setCancelled(true);
-                messages.send(attacker, "post-death-blocked");
-                return;
-            }
-            if (postDeath.isProtected(attacker.getUniqueId())) {
-                postDeath.revoke(attacker.getUniqueId());
-                messages.send(attacker, "post-death-revoked");
-            }
-            if (grace.active() || protectedFrom(attacker, victim)) {
-                event.setCancelled(true);
-                return;
-            }
-            if (configs.enabled("combat-tag") && !BypassPolicy.bypasses(configs, attacker, "glitgcore.bypass.combat")) {
-                Duration duration = Duration.ofSeconds(configs.main().getLong("combat.duration-seconds", 15));
-                var tagEvent = new GLITGCombatTagEvent(attacker, victim, duration);
-                Bukkit.getPluginManager().callEvent(tagEvent);
-                if (!tagEvent.isCancelled()) {
-                    combat.tag(attacker.getUniqueId(), victim.getUniqueId(), tagEvent.duration());
-                    messages.send(attacker, "combat-start", Map.of("seconds", tagEvent.duration().toSeconds()));
-                    messages.send(victim, "combat-start", Map.of("seconds", tagEvent.duration().toSeconds()));
-                }
-            }
+        Player attacker = attackingPlayer(event);
+        if (attacker != null && (event.getEntity() instanceof EnderCrystal
+                || event.getEntity() instanceof TNTPrimed || event.getEntity() instanceof ExplosiveMinecart)) {
+            entityOwners.put(event.getEntity().getUniqueId(), attribution(attacker));
         }
+        if (victim != null && attacker != null && !victim.equals(attacker) && !handlePlayerAttack(event, victim, attacker)) return;
         if (victim != null && attacker == null) markDanger(victim, event.getFinalDamage());
         applyWeaponCooldown(event, attacker);
         applyCap(event, damageSource(event));
@@ -116,7 +102,12 @@ public final class CombatProtectionListener implements Listener {
     public void onDamage(EntityDamageEvent event) {
         if (event instanceof EntityDamageByEntityEvent) return;
         String source = damageSource(event);
-        if (event.getEntity() instanceof Player player) markDanger(player, event.getFinalDamage());
+        if (event.getEntity() instanceof Player player) {
+            Player attacker = attackingPlayer(event);
+            if (attacker != null && !attacker.equals(player)) {
+                if (!handlePlayerAttack(event, player, attacker)) return;
+            } else markDanger(player, event.getFinalDamage());
+        }
         if (source != null) applyCap(event, source);
     }
 
@@ -176,6 +167,45 @@ public final class CombatProtectionListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        lastMovement.put(event.getPlayer().getUniqueId(), clock.millis());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityPlace(EntityPlaceEvent event) {
+        if (event.getPlayer() != null) entityOwners.put(event.getEntity().getUniqueId(), attribution(event.getPlayer()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onExplosionInteraction(PlayerInteractEvent event) {
+        if (event.getClickedBlock() == null) return;
+        Material material = event.getClickedBlock().getType();
+        boolean explosiveBed = material.name().endsWith("_BED")
+                && event.getClickedBlock().getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL;
+        boolean explosiveAnchor = material == Material.RESPAWN_ANCHOR
+                && event.getClickedBlock().getWorld().getEnvironment() != org.bukkit.World.Environment.NETHER;
+        if (explosiveBed || explosiveAnchor) {
+            org.bukkit.Location location = event.getClickedBlock().getLocation();
+            Attribution owner = attribution(event.getPlayer());
+            explosionLocations.put(locationKey(location), new LocationAttribution(owner.player(), owner.expiresAt(),
+                    location.getWorld().getUID(), location.getX(), location.getY(), location.getZ()));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onExplosion(EntityExplodeEvent event) {
+        Player owner = responsiblePlayer(event.getEntity());
+        if (owner == null) owner = recentLocationOwner(event.getLocation());
+        if (owner == null) return;
+        Attribution attribution = attribution(owner);
+        for (Entity nearby : event.getLocation().getWorld().getNearbyEntities(event.getLocation(), 12, 12, 12)) {
+            if (nearby instanceof TNTPrimed || nearby instanceof EnderCrystal || nearby instanceof ExplosiveMinecart) {
+                entityOwners.put(nearby.getUniqueId(), attribution);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         lastMovement.remove(event.getPlayer().getUniqueId());
         UUID id = event.getPlayer().getUniqueId();
@@ -201,6 +231,44 @@ public final class CombatProtectionListener implements Listener {
         return isAfkProtected(attacker) || isNaked(attacker) || isNewPlayer(attacker);
     }
 
+    /** Returns false when the event was cancelled and no later damage processing should run. */
+    private boolean handlePlayerAttack(EntityDamageEvent event, Player victim, Player attacker) {
+        if (protectionApplies(victim) && postDeath.isProtected(victim.getUniqueId())) {
+            event.setCancelled(true);
+            messages.send(attacker, "post-death-blocked");
+            return false;
+        }
+        if (protectionApplies(attacker) && postDeath.isProtected(attacker.getUniqueId())) {
+            postDeath.revoke(attacker.getUniqueId());
+            messages.send(attacker, "post-death-revoked");
+        }
+        if ((configs.enabled("global-pvp") && !configs.main().getBoolean("pvp.enabled", true))
+                || grace.active() || protectedFrom(attacker, victim)) {
+            event.setCancelled(true);
+            return false;
+        }
+        if (configs.enabled("combat-tag") && !BypassPolicy.bypasses(configs, attacker, "glitgcore.bypass.combat")) {
+            Duration duration = Duration.ofSeconds(configs.main().getLong("combat.duration-seconds", 15));
+            var tagEvent = new GLITGCombatTagEvent(attacker, victim, duration);
+            Bukkit.getPluginManager().callEvent(tagEvent);
+            if (!tagEvent.isCancelled()) {
+                combat.tag(attacker.getUniqueId(), victim.getUniqueId(), tagEvent.duration());
+                messages.send(attacker, "combat-start", Map.of("seconds", tagEvent.duration().toSeconds()));
+                messages.send(victim, "combat-start", Map.of("seconds", tagEvent.duration().toSeconds()));
+            }
+        }
+        if (configs.enabled("pvp-damage")) {
+            double multiplier = configs.main().getDouble("pvp.damage-multiplier", 1.0);
+            event.setDamage(Math.max(0.0, event.getDamage() * multiplier));
+        }
+        return true;
+    }
+
+    private boolean protectionApplies(Player player) {
+        return configs.enabled("protections")
+                && !BypassPolicy.bypasses(configs, player, "glitgcore.bypass.protection");
+    }
+
     private boolean isAfkProtected(Player player) {
         if (!configs.main().getBoolean("protections.afk.enabled", false)) return false;
         long threshold = configs.main().getLong("protections.afk.activation-seconds", 300) * 1000L;
@@ -209,7 +277,11 @@ public final class CombatProtectionListener implements Listener {
 
     private boolean isNaked(Player player) {
         if (!configs.main().getBoolean("protections.naked.enabled", false)) return false;
-        return java.util.Arrays.stream(player.getInventory().getArmorContents()).allMatch(item -> item == null || item.getType().isAir());
+        if (configs.main().getBoolean("protections.naked.require-empty-armor", true)) {
+            return java.util.Arrays.stream(player.getInventory().getArmorContents()).allMatch(item -> item == null || item.getType().isAir());
+        }
+        var attribute = player.getAttribute(org.bukkit.attribute.Attribute.ARMOR);
+        return attribute == null || attribute.getValue() <= 0.0;
     }
 
     private boolean isNewPlayer(Player player) {
@@ -266,7 +338,7 @@ public final class CombatProtectionListener implements Listener {
         if (capped < finalDamage && finalDamage > 0) event.setDamage(event.getDamage() * capped / finalDamage);
     }
 
-    private static String damageSource(EntityDamageEvent event) {
+    private String damageSource(EntityDamageEvent event) {
         if (event.getDamageSource().getDamageType().equals(DamageType.MACE_SMASH)) return "mace";
         if (event.getDamageSource().getDamageType().equals(DamageType.SPEAR)) return "spear";
         if (event.getDamageSource().getDamageType().equals(DamageType.BAD_RESPAWN_POINT)) {
@@ -288,9 +360,9 @@ public final class CombatProtectionListener implements Listener {
         return null;
     }
 
-    private static String damageSource(EntityDamageByEntityEvent event) {
+    private String damageSource(EntityDamageByEntityEvent event) {
         Entity damager = event.getDamager();
-        Player player = attackingPlayer(damager);
+        Player player = responsiblePlayer(damager);
         if (player != null) {
             String weapon = player.getInventory().getItemInMainHand().getType().name();
             if (weapon.equals("MACE")) return "mace";
@@ -303,12 +375,68 @@ public final class CombatProtectionListener implements Listener {
         return null;
     }
 
-    private static Player attackingPlayer(Entity damager) {
+    private Player attackingPlayer(EntityDamageByEntityEvent event) {
+        Player causing = responsiblePlayer(event.getDamageSource().getCausingEntity());
+        if (causing != null) return causing;
+        Player direct = responsiblePlayer(event.getDamager());
+        if (direct != null) return direct;
+        var location = event.getDamageSource().getSourceLocation();
+        return location == null ? null : recentLocationOwner(location);
+    }
+
+    private Player attackingPlayer(EntityDamageEvent event) {
+        Player causing = responsiblePlayer(event.getDamageSource().getCausingEntity());
+        if (causing != null) return causing;
+        if (event.getCause() != EntityDamageEvent.DamageCause.BLOCK_EXPLOSION
+                && event.getCause() != EntityDamageEvent.DamageCause.ENTITY_EXPLOSION) return null;
+        var location = event.getDamageSource().getSourceLocation();
+        if (location == null) location = event.getDamageSource().getDamageLocation();
+        return location == null ? null : recentLocationOwner(location);
+    }
+
+    private Player responsiblePlayer(Entity damager) {
+        if (damager == null) return null;
         if (damager instanceof Player player) return player;
         if (damager instanceof Projectile projectile) {
             ProjectileSource source = projectile.getShooter();
-            return source instanceof Player player ? player : null;
+            if (source instanceof Player player) return player;
+            if (source instanceof Entity entity) return responsiblePlayer(entity);
         }
-        return null;
+        if (damager instanceof TNTPrimed tnt) {
+            Player source = responsiblePlayer(tnt.getSource());
+            if (source != null) return source;
+        }
+        if (damager instanceof Tameable tameable && tameable.getOwner() instanceof Player player) return player;
+        Attribution attribution = entityOwners.get(damager.getUniqueId());
+        if (attribution == null || attribution.expiresAt().isBefore(clock.instant())) return null;
+        return Bukkit.getPlayer(attribution.player());
+    }
+
+    private Attribution attribution(Player player) {
+        return new Attribution(player.getUniqueId(), clock.instant().plusSeconds(30));
+    }
+
+    private Player recentLocationOwner(org.bukkit.Location location) {
+        LocationAttribution exact = explosionLocations.get(locationKey(location));
+        if (exact != null && exact.expiresAt().isAfter(clock.instant())) return Bukkit.getPlayer(exact.player());
+        return explosionLocations.values().stream()
+                .filter(attribution -> attribution.expiresAt().isAfter(clock.instant()) && attribution.world().equals(location.getWorld().getUID()))
+                .filter(attribution -> distanceSquared(attribution, location) <= 256.0)
+                .min(java.util.Comparator.comparingDouble(attribution -> distanceSquared(attribution, location)))
+                .map(attribution -> Bukkit.getPlayer(attribution.player())).orElse(null);
+    }
+
+    private static String locationKey(org.bukkit.Location location) {
+        return location.getWorld().getUID() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
+    }
+
+    private record Attribution(UUID player, Instant expiresAt) {}
+    private record LocationAttribution(UUID player, Instant expiresAt, UUID world, double x, double y, double z) {}
+
+    private static double distanceSquared(LocationAttribution attribution, org.bukkit.Location location) {
+        double dx = attribution.x() - location.getX();
+        double dy = attribution.y() - location.getY();
+        double dz = attribution.z() - location.getZ();
+        return dx * dx + dy * dy + dz * dz;
     }
 }

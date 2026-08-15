@@ -18,6 +18,7 @@ import dev.glitg.core.listener.CombatRestrictionListener;
 import dev.glitg.core.listener.ItemPolicyListener;
 import dev.glitg.core.listener.LifecycleGameplayListener;
 import dev.glitg.core.listener.MiscGameplayListener;
+import dev.glitg.core.listener.ParityGameplayListener;
 import dev.glitg.core.listener.UniqueCraftListener;
 import dev.glitg.core.message.MessageService;
 import dev.glitg.core.persistence.SqliteDatabase;
@@ -45,6 +46,8 @@ public final class GLITGCorePlugin extends JavaPlugin {
     private CombatProtectionListener combatListener;
     private GraceService grace;
     private AltarRitualService altars;
+    private ParityGameplayListener parityGameplay;
+    private MiscGameplayListener miscGameplay;
 
     @Override public void onEnable() {
         try {
@@ -66,8 +69,10 @@ public final class GLITGCorePlugin extends JavaPlugin {
             grace = new GraceService(this, configs, messages, database, clock);
             var dimensions = new DimensionService(this, configs, database, clock);
             var postDeath = new PostDeathProtectionService(this, database, clock);
-            var kits = new KitService(configs);
+            var kits = new KitService(configs, database, clock);
             altars = new AltarRitualService(this, configs, messages, database, clock);
+            parityGameplay = new ParityGameplayListener(this, configs, messages);
+            miscGameplay = new MiscGameplayListener(this, configs, messages);
             var gui = new AdminGuiService(this, configs, messages, crafting, rules, enchants, potions, kits);
             getLogger().info("Validated " + gui.validate() + " in-game configuration controls.");
             combatListener = new CombatProtectionListener(configs, messages, combat, cooldowns, grace, integrations, postDeath, clock);
@@ -75,17 +80,14 @@ public final class GLITGCorePlugin extends JavaPlugin {
                     grace, dimensions, kits, uniqueItems, database, altars, gui, postDeath);
 
             registerListeners(gui, router,
-                    new ItemPolicyListener(this, configs, messages, rules, enchants, potions, adapter, combat, postDeath),
+                    new ItemPolicyListener(this, configs, messages, rules, enchants, potions, adapter, combat, postDeath, database, clock),
                     combatListener,
                     new CombatRestrictionListener(configs, messages, combat),
                     new LifecycleGameplayListener(this, configs, messages, rules, dimensions, kits, database, postDeath, clock),
                     new UniqueCraftListener(configs, messages, uniqueItems),
-                    new AltarListener(altars), new MiscGameplayListener(this, configs, messages));
+                    new AltarListener(altars), altars, miscGameplay, parityGameplay);
             registerCommands(router);
 
-            if (configs.enabled("packet-protections") && !integrations.packetProviderAvailable()) {
-                getLogger().warning("Packet defenses are configured but neither PacketEvents nor ProtocolLib is enabled; anti-health-indicator and anti-seed-cracking remain inactive.");
-            }
             getLogger().info("GLITG Core " + getPluginMeta().getVersion() + " enabled for Paper " + getServer().getMinecraftVersion());
         } catch (ConfigurationException exception) {
             getLogger().severe("GLITG Core configuration is invalid: " + exception.getMessage());
@@ -114,11 +116,25 @@ public final class GLITGCorePlugin extends JavaPlugin {
 
     public void reloadServices() {
         rules.reload(); enchants.reload(); potions.reload(); crafting.reload(); combatListener.reload();
+        parityGameplay.reload(); miscGameplay.reload(); altars.reload(); grace.reload();
+    }
+
+    public void reloadConfiguration() throws ConfigurationException {
+        configs.reload();
+        try {
+            reloadServices();
+            configs.commitReload();
+        } catch (RuntimeException exception) {
+            configs.rollbackReload();
+            reloadServices();
+            throw new IllegalArgumentException("Reload failed and the prior configuration was restored: " + exception.getMessage(), exception);
+        }
     }
 
     @Override public void onDisable() {
         if (grace != null) grace.close();
         if (altars != null) altars.close();
+        if (parityGameplay != null) parityGameplay.close();
         if (database != null) try { database.close(); } catch (SQLException exception) { getLogger().warning("Database close failed: " + exception.getMessage()); }
         HandlerList.unregisterAll(this);
     }

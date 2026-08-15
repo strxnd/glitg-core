@@ -134,5 +134,6 @@ golden-head:
   regeneration-seconds: 10
 warden-heart:
   enabled: false
+  acquisition: RIGHT_CLICK
   drop-chance: 1.0
   material: ECHO_SHARD

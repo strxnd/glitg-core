@@ -20,6 +20,6 @@ public final class AltarListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        if (service.at(event.getBlock().getLocation()) != null && !event.getPlayer().hasPermission("glitgcore.altar.manage")) event.setCancelled(true);
+        if (service.enabled() && service.at(event.getBlock().getLocation()) != null && !event.getPlayer().hasPermission("glitgcore.altar.manage")) event.setCancelled(true);
     }
 }

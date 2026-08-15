@@ -21,7 +21,13 @@ features:
   death-system: true
   join-kit: false
   dimensions: true
-  packet-protections: false
+  locator-bar: true
+  xp-clumps: true
+  shield-tweaks: true
+  one-player-sleep: true
+  global-pvp: true
+  pvp-damage: true
+  health-indicator: false
   admin-utilities: true
   altars: false
   rituals: false
@@ -38,6 +44,7 @@ items:
   audit-interval-ticks: 100
   traverse-shulkers: true
   traverse-bundles: true
+  grandfather-existing-mythical: true
 
 combat:
   duration-seconds: 15
@@ -115,11 +122,27 @@ dimensions:
   nether-locked: false
   end-locked: true
 
-packet-protections:
-  anti-health-indicator: false
-  anti-seed-cracking: false
-  anti-minimap: false
-  minimap-fair: false
+locator-bar:
+  enabled: false
+
+xp-clumps:
+  radius: 4.0
+  maximum-experience: 10000
+
+shield-tweaks:
+  correct-block-sound: true
+  disable-cooldown-ticks: 5
+  skip-vanilla-damage-ticks: false
+
+sleep:
+  players-sleeping-percentage: 1
+
+pvp:
+  enabled: true
+  damage-multiplier: 1.0
+
+health-indicator:
+  label: '<red>❤</red>'
 
 villagers:
   infinite-restock: false
@@ -128,6 +151,8 @@ villagers:
 
 misc:
   hide-invisible-deaths-until: ''
+  hide-invisible-kills: false
+  hide-invisible-deaths: false
   ban-bed-bombing: true
   ban-respawn-anchor-bombing: true
   breeze-rod-drop-multiplier: 2

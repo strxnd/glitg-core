@@ -2,7 +2,7 @@
 
 ## LifeStealZ
 
-GLITG Core does not implement lifesteal. It does not blanket-clear drops, clone full inventories, or rewrite all respawns. Immortal-item handling removes only exact configured matches and restores only those stacks. DeathBan/spectator options are independent and default non-invasive; enable them deliberately when another death plugin is present.
+GLITG Core does not implement lifesteal. It does not blanket-clear drops, clone full inventories, or rewrite all respawns. Exact configured immortal drops remain world entities with invulnerability and unlimited lifetime, so they survive plugin restarts. DeathBan/spectator options are independent and default non-invasive; enable them deliberately when another death plugin is present.
 
 ## CoreProtect
 
@@ -18,7 +18,7 @@ WorldGuard is a soft dependency queried reflectively for the public PVP flag. Ot
 
 ## PacketEvents / ProtocolLib
 
-Public evidence conflicts: the current overview names ProtocolLib, while the Apr 6 changelog says PacketEvents replaced it. Both remain soft dependencies; the plugin loads without either and emits one clear startup warning if packet-only controls are requested. GLITG Core does not claim that a server can make a world seed mathematically unrecoverable after clients receive enough terrain, and it does not fake anti-minimap enforcement. These controls are therefore explicitly marked closest-safe/ambiguous in `PARITY.md` pending a stable 26.2 provider and reproducible public semantics.
+Public evidence conflicts about the current packet provider, and no public contract defines the transformations. GLITG Core therefore has no PacketEvents/ProtocolLib dependency and exposes no inert packet-defense switches. It does not claim that a server can make a world seed mathematically unrecoverable after clients receive enough terrain, or that server configuration can enforce arbitrary client minimap behavior.
 
 ## Custom items
 

@@ -16,7 +16,7 @@ All dangerous permissions default to operators. `<player>` means an online playe
 | `/cooldown status [key]` | Remaining cooldown | `glitgcore.cooldown.status` |
 | `/cooldown reset [player] [key]` | Reset one/all cooldowns | `glitgcore.cooldown.reset` |
 | `/grace`, `/start [seconds]`, `/stopgrace` | Grace status/control | `glitgcore.grace.status`, `.manage` |
-| `/kit save|load|clear|resetplayer|join [on|off]|give <player|@a>` | Exact join-kit operations | `glitgcore.kit.manage` |
+| `/kit save|load [player|@a]|clear|resetplayer <player>|join [on|off]|give <player|@a>` | Exact slot-restoring kit operations and durable eligibility reset | `glitgcore.kit.manage` |
 | `/invsee <player>`, `/endersee <player>` | Live inventory editors | `glitgcore.admin.invsee`, `.endersee` |
 | `/vanish [player]` | Toggle vanish | `glitgcore.admin.vanish` |
 | `/sbroadcast <message>` | Adventure broadcast | `glitgcore.admin.broadcast` |
@@ -30,6 +30,6 @@ All dangerous permissions default to operators. `<player>` means an online playe
 | `/saltar place|remove|list|info [id]` | Persistent altar admin | `glitgcore.altar.manage` |
 | `/enchant <player|@s|@a> <key> [level|remove]` | Policy-aware advanced enchant | `glitgcore.admin.enchant` |
 
-Bypasses: `glitgcore.bypass.itemrules`, `.itemlimits`, `.enchants`, `.cooldowns`, `.damagecaps`, `.combat`, `.protection`, `.dimensions`, `.misc`, and umbrella `glitgcore.bypass.*`. For operators, **Gameplay → Operator bypass** is the sole bypass authority. With it disabled, operators obey restrictions even if the server implicitly reports a bypass node. Granular nodes are intended for non-operator staff.
+Bypasses: `glitgcore.bypass.itemrules`, `.itemlimits`, `.potions`, `.enchants`, `.protecteditems`, `.cooldowns`, `.damagecaps`, `.combat`, `.protection`, `.dimensions`, `.misc`, and umbrella `glitgcore.bypass.*`. Each policy checks only its own bypass. For operators, **Gameplay → Operator bypass** is the sole bypass authority. With it disabled, operators obey restrictions even if the server implicitly reports a bypass node. Granular nodes are intended for non-operator staff.
 
 Every command has console-safe validation, usage text, tab completion, and exact permission declaration in `plugin.yml`.

@@ -11,15 +11,14 @@ Target: Paper 26.2, Java 25, GLITG Core 1.0.0.
 3. Start Paper once, edit the generated files in `plugins/GLITGCore/`, then run `/glitgcore reload`.
 4. Grant specific `glitgcore.*` permissions to staff. Management permissions default to operators, but gameplay bypasses do not. The Gameplay panel has an explicit global operator-bypass toggle.
 
-Item rules, grouped/scoped limits, effect-aware potion rules, enchant rules, cooldowns, caps, combat restrictions, post-death protection, grace, kits, recipes, dimensions, independent timers, rituals, and utilities can be changed independently. The bundled configuration implements the deterministic portions of the GLITG server rules; heart economy, anti-cheat, claims, and judgment calls remain external. `/glitgcore gui` opens the Gameplay / Balance / Content control panel. `/glitgcore recipe <id>` opens the virtual metadata-preserving shaped/shapeless editor. `/glitg` is the short command alias.
+Item rules, grouped/scoped limits, effect-aware potion rules, enchant rules, cooldowns, caps, combat restrictions, post-death protection, grace, kits, recipes, dimensions, Locator Bar, PvP, sleep, XP clumps, health display, rituals, and utilities can be changed independently. The bundled configuration implements the deterministic portions of the GLITG server rules; heart economy, anti-cheat, claims, and judgment calls remain external. `/glitgcore gui` opens the Gameplay / Balance / Content control panel. `/glitgcore recipe <id>` opens the virtual metadata-preserving shaped/shapeless editor. `/glitg` is the short command alias.
 
 ## Optional integrations
 
 - WorldGuard: reflective safe-region checks plus the public `RegionProvider` service API.
-- PacketEvents or ProtocolLib: detected as soft packet providers. Packet-only defenses are never allowed to prevent startup.
 - LifeStealZ, CoreProtect, and Grim: no hard dependency. GLITG Core limits mutations to configured items/events.
 
-The public SMP Core overview conflicts with its April 2026 changelog about whether ProtocolLib or PacketEvents is the current packet provider. GLITG Core therefore treats both as optional and clearly reports inactive packet defenses. See [COMPATIBILITY.md](COMPATIBILITY.md).
+Packet-only anti-health-indicator, anti-seed-cracking, and anti-minimap switches were removed because no real packet transformation backed them. They must not be represented as implemented until a verified provider adapter exists. See [COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Quick examples
 

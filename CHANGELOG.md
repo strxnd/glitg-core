@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Closed audit gaps in recursive bundle/shulker policy enforcement, granular bypasses, offline death-ban administration, exact `/kit load @a`, durable kit reset state, vanish restoration, custom spawn use, ritual world-load recovery, scheduled-dimension cancellation, and custom-duration grace progress.
+- Added Locator Bar, one-player sleep, global PvP, PvP damage scaling, XP clumps, shield tweaks, built-in health display, separate invisible kill/death controls, and right-click Warden Heart acquisition.
+- Made immortal configured drops invulnerable with unlimited lifetime and made configuration/recipe reloads validate and roll back transactionally.
+- Removed inert packet-protection controls and optional packet-provider declarations until real packet transformations can be implemented and verified.
 - Added durable 30-minute post-death PvP protection with outgoing-attack revocation and optional loot/container anti-interference.
 - Added combat-only Elytra, lava, ice, draining, armour-switching, armour-restocking, container-restocking, and environmental danger-logging controls.
 - Added grouped/scoped/stack-based item limits, recoverable insertion audits, and effect/amplifier/duration-aware potion policy.

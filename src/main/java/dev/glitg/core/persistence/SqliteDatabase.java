@@ -8,6 +8,7 @@ import java.sql.Statement;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class SqliteDatabase implements AutoCloseable {
     private final Connection connection;
@@ -31,7 +32,11 @@ public final class SqliteDatabase implements AutoCloseable {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS altars (id TEXT PRIMARY KEY, world_uuid TEXT NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, definition TEXT NOT NULL)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS ritual_runs (id TEXT PRIMARY KEY, ritual_id TEXT NOT NULL, altar_id TEXT NOT NULL, state TEXT NOT NULL, started_at INTEGER NOT NULL, completes_at INTEGER NOT NULL)");
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS player_protections (player_uuid TEXT PRIMARY KEY, expires_at INTEGER NOT NULL)");
-            statement.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS ritual_one_active_per_altar ON ritual_runs(altar_id) WHERE state='RUNNING'");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS player_profiles (player_uuid TEXT PRIMARY KEY, player_name TEXT NOT NULL COLLATE NOCASE UNIQUE)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS kit_claims (player_uuid TEXT PRIMARY KEY, claimed_at INTEGER NOT NULL)");
+            statement.executeUpdate("CREATE TABLE IF NOT EXISTS policy_migrations (player_uuid TEXT NOT NULL, migration TEXT NOT NULL, applied_at INTEGER NOT NULL, PRIMARY KEY(player_uuid, migration))");
+            statement.executeUpdate("DROP INDEX IF EXISTS ritual_one_active_per_altar");
+            statement.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS ritual_one_active_per_altar ON ritual_runs(altar_id) WHERE state IN ('RUNNING','REWARDING')");
         }
     }
 
@@ -56,6 +61,62 @@ public final class SqliteDatabase implements AutoCloseable {
         try (var statement = connection.prepareStatement("DELETE FROM death_bans WHERE player_uuid=?")) {
             statement.setString(1, player.toString());
             statement.executeUpdate();
+        }
+    }
+
+    public synchronized void rememberPlayer(UUID player, String name) throws SQLException {
+        try (var statement = connection.prepareStatement("INSERT INTO player_profiles(player_uuid, player_name) VALUES(?, ?) ON CONFLICT(player_uuid) DO UPDATE SET player_name=excluded.player_name")) {
+            statement.setString(1, player.toString());
+            statement.setString(2, name);
+            statement.executeUpdate();
+        }
+    }
+
+    public synchronized Optional<UUID> playerUuid(String name) throws SQLException {
+        try (var statement = connection.prepareStatement("SELECT player_uuid FROM player_profiles WHERE player_name=? COLLATE NOCASE")) {
+            statement.setString(1, name);
+            try (var result = statement.executeQuery()) {
+                return result.next() ? Optional.of(UUID.fromString(result.getString(1))) : Optional.empty();
+            }
+        }
+    }
+
+    public synchronized boolean kitClaimed(UUID player) throws SQLException {
+        try (var statement = connection.prepareStatement("SELECT claimed_at FROM kit_claims WHERE player_uuid=?")) {
+            statement.setString(1, player.toString());
+            try (var result = statement.executeQuery()) { return result.next() && result.getLong(1) > 0; }
+        }
+    }
+
+    public synchronized boolean kitResetEligible(UUID player) throws SQLException {
+        try (var statement = connection.prepareStatement("SELECT claimed_at FROM kit_claims WHERE player_uuid=?")) {
+            statement.setString(1, player.toString());
+            try (var result = statement.executeQuery()) { return result.next() && result.getLong(1) == 0; }
+        }
+    }
+
+    public synchronized void markKitClaimed(UUID player, long claimedAtMillis) throws SQLException {
+        try (var statement = connection.prepareStatement("INSERT INTO kit_claims(player_uuid, claimed_at) VALUES(?, ?) ON CONFLICT(player_uuid) DO UPDATE SET claimed_at=excluded.claimed_at")) {
+            statement.setString(1, player.toString());
+            statement.setLong(2, claimedAtMillis);
+            statement.executeUpdate();
+        }
+    }
+
+    public synchronized void resetKitClaim(UUID player) throws SQLException {
+        try (var statement = connection.prepareStatement("INSERT INTO kit_claims(player_uuid, claimed_at) VALUES(?, 0) ON CONFLICT(player_uuid) DO UPDATE SET claimed_at=0")) {
+            statement.setString(1, player.toString());
+            statement.executeUpdate();
+        }
+    }
+
+    /** Returns true exactly once per player and migration key. */
+    public synchronized boolean claimPolicyMigration(UUID player, String migration, long appliedAtMillis) throws SQLException {
+        try (var statement = connection.prepareStatement("INSERT OR IGNORE INTO policy_migrations(player_uuid, migration, applied_at) VALUES(?, ?, ?)")) {
+            statement.setString(1, player.toString());
+            statement.setString(2, migration);
+            statement.setLong(3, appliedAtMillis);
+            return statement.executeUpdate() == 1;
         }
     }
 
@@ -128,22 +189,34 @@ public final class SqliteDatabase implements AutoCloseable {
         }
     }
 
-    public synchronized void finishRitual(String runId) throws SQLException {
-        try (var statement = connection.prepareStatement("UPDATE ritual_runs SET state='COMPLETE' WHERE id=? AND state='RUNNING'")) {
-            statement.setString(1, runId); statement.executeUpdate();
+    public synchronized boolean claimRitualReward(String runId) throws SQLException {
+        try (var statement = connection.prepareStatement("UPDATE ritual_runs SET state='REWARDING' WHERE id=? AND state='RUNNING'")) {
+            statement.setString(1, runId);
+            return statement.executeUpdate() == 1;
         }
     }
 
-    public synchronized List<RitualRunRow> runningRituals() throws SQLException {
+    public synchronized void finishRitual(String runId) throws SQLException {
+        try (var statement = connection.prepareStatement("UPDATE ritual_runs SET state='COMPLETE' WHERE id=? AND state='REWARDING'")) {
+            statement.setString(1, runId);
+            statement.executeUpdate();
+        }
+    }
+
+    public synchronized List<RitualRunRow> recoverableRituals() throws SQLException {
         var rows = new ArrayList<RitualRunRow>();
-        try (var statement = connection.createStatement(); var result = statement.executeQuery("SELECT id,ritual_id,altar_id,started_at,completes_at FROM ritual_runs WHERE state='RUNNING'")) {
-            while (result.next()) rows.add(new RitualRunRow(result.getString(1), result.getString(2), result.getString(3), result.getLong(4), result.getLong(5)));
+        try (var statement = connection.createStatement(); var result = statement.executeQuery("SELECT id,ritual_id,altar_id,state,started_at,completes_at FROM ritual_runs WHERE state IN ('RUNNING','REWARDING')")) {
+            while (result.next()) rows.add(new RitualRunRow(result.getString(1), result.getString(2), result.getString(3), result.getString(4), result.getLong(5), result.getLong(6)));
         }
         return List.copyOf(rows);
     }
 
+    public synchronized List<RitualRunRow> runningRituals() throws SQLException {
+        return recoverableRituals().stream().filter(row -> row.state().equals("RUNNING")).toList();
+    }
+
     public record AltarRow(String id, UUID worldUuid, int x, int y, int z, String definition) {}
-    public record RitualRunRow(String id, String ritualId, String altarId, long startedAt, long completesAt) {}
+    public record RitualRunRow(String id, String ritualId, String altarId, String state, long startedAt, long completesAt) {}
 
     @Override public synchronized void close() throws SQLException { connection.close(); }
 }

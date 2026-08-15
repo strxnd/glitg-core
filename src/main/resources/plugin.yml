@@ -6,11 +6,11 @@ description: Clean-room, open-source SMP rules and administration core.
 api-version: '26.2'
 author: GLITG Core contributors
 load: POSTWORLD
-softdepend: [ProtocolLib, packetevents, PacketEvents, WorldGuard, LifeStealZ, CoreProtect, GrimAC]
+softdepend: [WorldGuard, LifeStealZ, CoreProtect, GrimAC]
 commands:
   glitgcore:
     description: GLITG Core administration
-    usage: /glitgcore <gui|reload|status|feature|debug|version>
+    usage: /glitgcore <gui|reload|status|feature|recipe|debug|version>
     aliases: [glitg]
     permission: glitgcore.admin
   banitem:
@@ -47,7 +47,7 @@ commands:
     permission: glitgcore.grace.manage
   kit:
     description: Manage the exact join-kit inventory
-    usage: /kit <save|load|clear|resetplayer|join|give>
+    usage: /kit <save|load [player|@a]|clear|resetplayer <player>|join|give>
     permission: glitgcore.kit.manage
   invsee:
     description: Open another player's inventory
@@ -109,14 +109,57 @@ commands:
     permission: glitgcore.deathban.manage
   saltar:
     description: Place, remove, list, or inspect persistent altars
-    usage: /saltar <place|remove|list|info> [definition]
+    usage: /saltar <place|remove|list|info> [id]
     permission: glitgcore.altar.manage
 permissions:
   glitgcore.*:
     default: op
     children:
       glitgcore.admin: true
+      glitgcore.items.manage: true
+      glitgcore.combat.status: true
+      glitgcore.protection.status: true
+      glitgcore.cooldown.status: true
+      glitgcore.grace.status: true
+      glitgcore.message.reply: true
+      glitgcore.message.send: true
+      glitgcore.dimension.status: true
+      glitgcore.timers.status: true
   glitgcore.admin:
+    default: op
+    children:
+      glitgcore.items.manage: true
+      glitgcore.cooldown.reset: true
+      glitgcore.grace.manage: true
+      glitgcore.kit.manage: true
+      glitgcore.admin.invsee: true
+      glitgcore.admin.endersee: true
+      glitgcore.admin.vanish: true
+      glitgcore.admin.vanish.see: true
+      glitgcore.admin.broadcast: true
+      glitgcore.admin.enchant: true
+      glitgcore.admin.worldtp: true
+      glitgcore.admin.setspawn: true
+      glitgcore.dimension.manage: true
+      glitgcore.timers.manage: true
+      glitgcore.unique.manage: true
+      glitgcore.deathban.manage: true
+      glitgcore.altar.manage: true
+  glitgcore.admin.invsee:
+    default: op
+  glitgcore.admin.endersee:
+    default: op
+  glitgcore.admin.vanish:
+    default: op
+  glitgcore.admin.vanish.see:
+    default: op
+  glitgcore.admin.broadcast:
+    default: op
+  glitgcore.admin.enchant:
+    default: op
+  glitgcore.admin.worldtp:
+    default: op
+  glitgcore.admin.setspawn:
     default: op
   glitgcore.items.manage:
     default: op
@@ -157,7 +200,9 @@ permissions:
     children:
       glitgcore.bypass.itemrules: true
       glitgcore.bypass.itemlimits: true
+      glitgcore.bypass.potions: true
       glitgcore.bypass.enchants: true
+      glitgcore.bypass.protecteditems: true
       glitgcore.bypass.cooldowns: true
       glitgcore.bypass.damagecaps: true
       glitgcore.bypass.combat: true
@@ -168,7 +213,11 @@ permissions:
     default: false
   glitgcore.bypass.itemlimits:
     default: false
+  glitgcore.bypass.potions:
+    default: false
   glitgcore.bypass.enchants:
+    default: false
+  glitgcore.bypass.protecteditems:
     default: false
   glitgcore.bypass.cooldowns:
     default: false

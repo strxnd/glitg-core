@@ -39,12 +39,17 @@ public final class MiscGameplayListener implements Listener {
     private final ConfigService configs;
     private final MessageService messages;
     private final NamespacedKey speedAdjusted;
+    private final NamespacedKey goldenHeadKey;
 
     public MiscGameplayListener(JavaPlugin plugin, ConfigService configs, MessageService messages) {
-        this.plugin=plugin;this.configs=configs;this.messages=messages;speedAdjusted=new NamespacedKey(plugin,"happy_ghast_speed_adjusted");
+        this.plugin=plugin;this.configs=configs;this.messages=messages;speedAdjusted=new NamespacedKey(plugin,"happy_ghast_speed_adjusted");goldenHeadKey=new NamespacedKey(plugin,"golden_head");
+        reload();
+    }
+
+    public void reload() {
+        plugin.getServer().removeRecipe(goldenHeadKey);
         if (configs.enabled("golden-heads") && configs.file("items.yml").getBoolean("golden-head.enabled", false)) {
-            NamespacedKey key = new NamespacedKey(plugin, "golden_head");
-            ShapedRecipe recipe = new ShapedRecipe(key, new ItemStack(Material.PLAYER_HEAD));
+            ShapedRecipe recipe = new ShapedRecipe(goldenHeadKey, new ItemStack(Material.PLAYER_HEAD));
             recipe.shape("GGG", "GHG", "GGG"); recipe.setIngredient('G', Material.GOLD_INGOT); recipe.setIngredient('H', Material.PLAYER_HEAD);
             plugin.getServer().addRecipe(recipe);
         }

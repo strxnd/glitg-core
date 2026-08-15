@@ -58,7 +58,8 @@ final class GuiCatalog {
         add(features, "item-rules", "Item restrictions", Material.BARRIER, Category.RULES, Special.ITEM_RULES,
                 List.of("Control exactly how selected items may be used."), List.of(
                         bool("config.yml", "items.traverse-shulkers", "Inspect shulker boxes", Material.SHULKER_BOX, "Prevent nested-storage bypasses."),
-                        bool("config.yml", "items.traverse-bundles", "Inspect bundles", Material.BUNDLE, "Prevent bundle bypasses.")));
+                        bool("config.yml", "items.traverse-bundles", "Inspect bundles", Material.BUNDLE, "Prevent bundle bypasses."),
+                        bool("config.yml", "items.grandfather-existing-mythical", "Grandfather existing items", Material.NAME_TAG, "Mark pre-enforcement mythical items once per player.")));
         add(features, "item-limits", "Item limits", Material.HOPPER, Category.RULES, Special.ITEM_LIMITS,
                 List.of("Set how many of an item each player may carry."), List.of(
                         bool("config.yml", "items.include-ender-chest", "Count ender chest", Material.ENDER_CHEST, "Include ender-chest contents in limits."),
@@ -110,12 +111,9 @@ final class GuiCatalog {
                 List.of("Open or close the Nether and End."), List.of(
                         bool("config.yml", "dimensions.nether-locked", "Nether locked", Material.NETHERRACK, "Block travel into the Nether."),
                         bool("config.yml", "dimensions.end-locked", "End locked", Material.END_STONE, "Block travel into the End.")));
-        add(features, "packet-protections", "Information defenses", Material.SPYGLASS, Category.RULES, Special.NONE,
-                List.of("Hide server data exposed by supported packet providers."), List.of(
-                        bool("config.yml", "packet-protections.anti-health-indicator", "Hide health indicators", Material.GOLDEN_APPLE, "Requires a supported packet provider."),
-                        bool("config.yml", "packet-protections.anti-seed-cracking", "Seed protection", Material.WHEAT_SEEDS, "Requires a supported packet provider."),
-                        bool("config.yml", "packet-protections.anti-minimap", "Minimap protection", Material.FILLED_MAP, "Advertise minimap restrictions where supported."),
-                        bool("config.yml", "packet-protections.minimap-fair", "Fair minimap mode", Material.COMPASS, "Allow fair-play minimap behavior.")));
+        add(features, "locator-bar", "Locator Bar", Material.COMPASS, Category.RULES, Special.NONE,
+                List.of("Apply the vanilla Locator Bar game rule to every loaded world."), List.of(
+                        bool("config.yml", "locator-bar.enabled", "Locator Bar enabled", Material.COMPASS, "Show or hide the player locator overlay.")));
 
         add(features, "cooldowns", "Cooldowns", Material.CLOCK, Category.BALANCING, Special.NONE,
                 List.of("Tune individual combat-item cooldowns."), List.of(
@@ -138,6 +136,27 @@ final class GuiCatalog {
                         decimal("config.yml", "damage-caps.tnt", "TNT", Material.TNT),
                         decimal("config.yml", "damage-caps.projectile", "Projectile", Material.ARROW),
                         decimal("config.yml", "damage-caps.fall", "Fall", Material.FEATHER)));
+        add(features, "global-pvp", "Global PvP", Material.IRON_SWORD, Category.BALANCING, Special.NONE,
+                List.of("Apply one PvP state to every loaded world."), List.of(
+                        bool("config.yml", "pvp.enabled", "PvP enabled", Material.IRON_SWORD, "Allow player-versus-player damage.")));
+        add(features, "pvp-damage", "PvP damage", Material.DIAMOND_SWORD, Category.BALANCING, Special.NONE,
+                List.of("Scale general player-versus-player damage."), List.of(
+                        decimal("config.yml", "pvp.damage-multiplier", "Damage multiplier", Material.DIAMOND_SWORD, "Multiply uncancelled PvP damage.")));
+        add(features, "shield-tweaks", "Shield fixes", Material.SHIELD, Category.BALANCING, Special.NONE,
+                List.of("Correct shield sound, disable delay, and damage-tick behavior."), List.of(
+                        bool("config.yml", "shield-tweaks.correct-block-sound", "Correct block sound", Material.NOTE_BLOCK, "Play the shield block sound reliably."),
+                        integer("config.yml", "shield-tweaks.disable-cooldown-ticks", "Disable cooldown", Material.CLOCK, "Ticks before a disabled shield may be raised."),
+                        bool("config.yml", "shield-tweaks.skip-vanilla-damage-ticks", "Skip damage immunity", Material.REDSTONE, "Clear vanilla damage immunity while blocking.")));
+        add(features, "xp-clumps", "XP clumps", Material.EXPERIENCE_BOTTLE, Category.BALANCING, Special.NONE,
+                List.of("Merge nearby experience into larger orbs."), List.of(
+                        decimal("config.yml", "xp-clumps.radius", "Merge radius", Material.ENDER_EYE, "Distance used to collect nearby XP orbs."),
+                        integer("config.yml", "xp-clumps.maximum-experience", "Maximum clump", Material.EXPERIENCE_BOTTLE, "Maximum experience stored in one clump.")));
+        add(features, "one-player-sleep", "One-player sleep", Material.RED_BED, Category.BALANCING, Special.NONE,
+                List.of("Configure the vanilla sleeping percentage in every world."), List.of(
+                        integer("config.yml", "sleep.players-sleeping-percentage", "Sleeping percentage", Material.RED_BED, "Use 1 for practical one-player sleep.")));
+        add(features, "health-indicator", "Health indicator", Material.GOLDEN_APPLE, Category.BALANCING, Special.NONE,
+                List.of("Show vanilla health below player names."), List.of(
+                        string("config.yml", "health-indicator.label", "Indicator label", Material.NAME_TAG, "MiniMessage label shown below names.")));
         add(features, "grace", "Grace period", Material.BELL, Category.BALANCING, Special.NONE,
                 List.of("Set the opening grace period."), List.of(
                         bool("config.yml", "grace.active-on-startup", "Start automatically", Material.REDSTONE_TORCH, "Start a fresh grace period when the server boots."),
@@ -162,11 +181,14 @@ final class GuiCatalog {
         add(features, "warden-heart", "Warden heart", Material.ECHO_SHARD, Category.BALANCING, Special.NONE,
                 List.of("Configure the tagged Warden drop."), List.of(
                         bool("items.yml", "warden-heart.enabled", "Drop enabled", Material.ECHO_SHARD, "Allow Wardens to drop the configured heart."),
+                        enumeration("items.yml", "warden-heart.acquisition", "Acquisition", Material.ECHO_SHARD, List.of("RIGHT_CLICK", "DROP", "BOTH"), "Choose the public right-click path, death drop, or both."),
                         decimal("items.yml", "warden-heart.drop-chance", "Drop chance", Material.WARDEN_SPAWN_EGG, "Probability from 0.0 to 1.0."),
                         string("items.yml", "warden-heart.material", "Result material", Material.ECHO_SHARD, "Minecraft material name.")));
         add(features, "miscellaneous", "Fight mechanics", Material.REDSTONE, Category.BALANCING, Special.NONE,
                 List.of("Configure additional combat rules."), List.of(
                         string("config.yml", "misc.hide-invisible-deaths-until", "Hide invisible deaths until", Material.POTION, "Optional ISO-8601 UTC cutoff timestamp."),
+                        bool("config.yml", "misc.hide-invisible-kills", "Hide invisible killers", Material.IRON_SWORD, "Hide the death message when an invisible player kills."),
+                        bool("config.yml", "misc.hide-invisible-deaths", "Hide invisible deaths", Material.SKELETON_SKULL, "Hide the death message when the dead player is invisible."),
                         bool("config.yml", "misc.ban-bed-bombing", "Ban bed bombing", Material.RED_BED, "Block explosive bed use outside the Overworld."),
                         bool("config.yml", "misc.ban-respawn-anchor-bombing", "Ban anchor bombing", Material.RESPAWN_ANCHOR, "Block explosive anchor use outside the Nether."),
                         integer("config.yml", "misc.breeze-rod-drop-multiplier", "Breeze Rod multiplier", Material.BREEZE_ROD, "Multiply Breeze Rod drops; one keeps vanilla behavior."),

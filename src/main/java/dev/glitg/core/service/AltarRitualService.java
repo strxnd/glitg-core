@@ -9,6 +9,9 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -21,7 +24,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class AltarRitualService implements AutoCloseable {
+public final class AltarRitualService implements AutoCloseable, Listener {
     private final JavaPlugin plugin;
     private final ConfigService configs;
     private final MessageService messages;
@@ -30,11 +33,12 @@ public final class AltarRitualService implements AutoCloseable {
     private final Map<String, SqliteDatabase.AltarRow> altars = new ConcurrentHashMap<>();
     private final Map<String, String> activeByAltar = new ConcurrentHashMap<>();
     private final Map<String, org.bukkit.scheduler.BukkitTask> tasks = new ConcurrentHashMap<>();
+    private final Map<String, SqliteDatabase.RitualRunRow> awaitingWorld = new ConcurrentHashMap<>();
 
     public AltarRitualService(JavaPlugin plugin, ConfigService configs, MessageService messages, SqliteDatabase database, Clock clock) throws SQLException {
         this.plugin = plugin; this.configs = configs; this.messages = messages; this.database = database; this.clock = clock;
         database.altars().forEach(altar -> altars.put(altar.id(), altar));
-        for (var run : database.runningRituals()) {
+        for (var run : database.recoverableRituals()) {
             var altar = altars.get(run.altarId());
             if (altar == null) {
                 plugin.getLogger().severe("Ritual " + run.id() + " references missing altar " + run.altarId() + "; preserving it for manual recovery.");
@@ -42,11 +46,16 @@ public final class AltarRitualService implements AutoCloseable {
             }
             activeByAltar.put(altar.id(), run.id());
             long remainingSeconds = Math.max(0, (run.completesAt() - clock.millis() + 999) / 1000);
-            Bukkit.getScheduler().runTask(plugin, () -> schedule(run.id(), run.ritualId(), altar, remainingSeconds));
+            if (configs.enabled("altars") && configs.enabled("rituals")) {
+                Bukkit.getScheduler().runTask(plugin, () -> schedule(run, altar, remainingSeconds));
+            } else {
+                awaitingWorld.put(run.id(), run);
+            }
         }
     }
 
     public synchronized String place(Player player, String definition) throws SQLException {
+        if (!configs.enabled("altars")) throw new IllegalStateException("altar feature is disabled");
         var section = configs.file("rituals.yml").getConfigurationSection("altars." + definition);
         if (section == null || !section.getBoolean("enabled", false)) throw new IllegalArgumentException("unknown or disabled altar definition");
         Material expected = Material.matchMaterial(section.getString("block", "LODESTONE"));
@@ -67,13 +76,17 @@ public final class AltarRitualService implements AutoCloseable {
 
     public List<SqliteDatabase.AltarRow> list() { return List.copyOf(altars.values()); }
 
+    public SqliteDatabase.AltarRow byId(String id) { return altars.get(id); }
+
+    public boolean enabled() { return configs.enabled("altars"); }
+
     public SqliteDatabase.AltarRow at(Location location) {
         return altars.values().stream().filter(row -> row.worldUuid().equals(location.getWorld().getUID())
                 && row.x() == location.getBlockX() && row.y() == location.getBlockY() && row.z() == location.getBlockZ()).findFirst().orElse(null);
     }
 
     public synchronized boolean tryStart(Player player, SqliteDatabase.AltarRow altar) {
-        if (!configs.enabled("rituals") || activeByAltar.containsKey(altar.id())) return false;
+        if (!configs.enabled("altars") || !configs.enabled("rituals") || activeByAltar.containsKey(altar.id())) return false;
         var rituals = configs.file("rituals.yml").getConfigurationSection("rituals");
         if (rituals == null) return false;
         ItemStack held = player.getInventory().getItemInMainHand();
@@ -90,7 +103,7 @@ public final class AltarRitualService implements AutoCloseable {
                 if (!database.beginRitual(runId, id, altar.id(), now, now + duration * 1000L)) return false;
                 held.setAmount(held.getAmount() - amount); // consume only after the durable run row exists
                 activeByAltar.put(altar.id(), runId);
-                schedule(runId, id, altar, duration);
+                schedule(new SqliteDatabase.RitualRunRow(runId, id, altar.id(), "RUNNING", now, now + duration * 1000L), altar, duration);
                 return true;
             } catch (SQLException exception) {
                 plugin.getLogger().severe("Could not start ritual transaction: " + exception.getMessage());
@@ -100,9 +113,19 @@ public final class AltarRitualService implements AutoCloseable {
         return false;
     }
 
-    private void schedule(String runId, String ritualId, SqliteDatabase.AltarRow altar, long durationSeconds) {
+    private void schedule(SqliteDatabase.RitualRunRow run, SqliteDatabase.AltarRow altar, long durationSeconds) {
+        if (!configs.enabled("altars") || !configs.enabled("rituals")) {
+            awaitingWorld.put(run.id(), run);
+            return;
+        }
         Location location = location(altar);
-        if (location == null) return;
+        if (location == null) {
+            awaitingWorld.put(run.id(), run);
+            return;
+        }
+        awaitingWorld.remove(run.id());
+        String runId = run.id();
+        String ritualId = run.ritualId();
         String base = "rituals." + ritualId;
         Particle particle;
         try { particle = Particle.valueOf(configs.file("rituals.yml").getString(base + ".particle", "SOUL_FIRE_FLAME").toUpperCase(Locale.ROOT)); }
@@ -114,25 +137,63 @@ public final class AltarRitualService implements AutoCloseable {
             elapsed[0] += 10;
             double radius = configs.file("rituals.yml").getDouble(base + ".radius", 3.0);
             if (radius > 0) location.getWorld().spawnParticle(selected, location.clone().add(0.5, 1, 0.5), 12, radius / 2, 0.5, radius / 2, 0.01);
-            if (elapsed[0] >= totalTicks) finish(runId, ritualId, altar, location);
+            if (elapsed[0] >= totalTicks) finish(run, altar, location);
         }, 0L, 10L);
         tasks.put(runId, task);
     }
 
-    private synchronized void finish(String runId, String ritualId, SqliteDatabase.AltarRow altar, Location location) {
+    private synchronized void finish(SqliteDatabase.RitualRunRow run, SqliteDatabase.AltarRow altar, Location location) {
+        String runId = run.id();
+        String ritualId = run.ritualId();
         org.bukkit.scheduler.BukkitTask task = tasks.remove(runId);
         if (task != null) task.cancel();
+        boolean completed = false;
         try {
-            database.finishRitual(runId);
+            if (run.state().equals("RUNNING") && !database.claimRitualReward(runId)) {
+                awaitingWorld.put(runId, new SqliteDatabase.RitualRunRow(runId, ritualId, altar.id(), "REWARDING",
+                        run.startedAt(), run.completesAt()));
+                return;
+            }
             String base = "rituals." + ritualId;
             Material material = Material.matchMaterial(configs.file("rituals.yml").getString(base + ".result-material", "AIR"));
             int amount = configs.file("rituals.yml").getInt(base + ".result-amount", 1);
             if (material != null && !material.isAir() && amount > 0) location.getWorld().dropItemNaturally(location.clone().add(0.5, 1, 0.5), new ItemStack(material, amount));
             configs.file("rituals.yml").getStringList(base + ".commands").forEach(command -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command
                     .replace("<x>", String.valueOf(altar.x())).replace("<y>", String.valueOf(altar.y())).replace("<z>", String.valueOf(altar.z()))));
-        } catch (SQLException exception) {
+            database.finishRitual(runId);
+            completed = true;
+        } catch (SQLException | RuntimeException exception) {
             plugin.getLogger().severe("Could not complete ritual " + runId + ": " + exception.getMessage());
-        } finally { activeByAltar.remove(altar.id()); }
+            awaitingWorld.put(runId, new SqliteDatabase.RitualRunRow(runId, ritualId, altar.id(), "REWARDING",
+                    run.startedAt(), run.completesAt()));
+        } finally {
+            if (completed) activeByAltar.remove(altar.id());
+        }
+    }
+
+    @EventHandler
+    public void onWorldLoad(WorldLoadEvent event) {
+        retryAwaiting(event.getWorld().getUID());
+    }
+
+    public synchronized void reload() {
+        if (!configs.enabled("altars") || !configs.enabled("rituals")) {
+            tasks.values().forEach(org.bukkit.scheduler.BukkitTask::cancel);
+            tasks.clear();
+            try { database.recoverableRituals().forEach(run -> awaitingWorld.put(run.id(), run)); }
+            catch (SQLException exception) { plugin.getLogger().warning("Could not pause ritual recovery: " + exception.getMessage()); }
+            return;
+        }
+        retryAwaiting(null);
+    }
+
+    private void retryAwaiting(UUID loadedWorld) {
+        for (var run : List.copyOf(awaitingWorld.values())) {
+            SqliteDatabase.AltarRow altar = altars.get(run.altarId());
+            if (altar == null || (loadedWorld != null && !altar.worldUuid().equals(loadedWorld))) continue;
+            long remaining = Math.max(0, (run.completesAt() - clock.millis() + 999) / 1000);
+            schedule(run, altar, remaining);
+        }
     }
 
     private static Location location(SqliteDatabase.AltarRow altar) {

@@ -29,22 +29,47 @@ public final class CraftingService {
         this.plugin = plugin; this.configs = configs;
     }
 
-    public void reload() {
+    public synchronized void reload() {
+        Map<NamespacedKey, RecipeDefinition> candidate = new java.util.LinkedHashMap<>();
+        if (configs.enabled("custom-crafting")) {
+            ConfigurationSection root = configs.file("recipes.yml").getConfigurationSection("recipes");
+            if (root != null) for (String id : root.getKeys(false)) {
+                try {
+                    RecipeDefinition definition = parse(id, root.getConfigurationSection(id));
+                    if (!definition.enabled()) continue;
+                    NamespacedKey key = new NamespacedKey(plugin, safe(id));
+                    build(key, definition); // validate all definitions before touching live recipes
+                    if (candidate.putIfAbsent(key, definition) != null) {
+                        throw new IllegalArgumentException("recipe IDs collide after normalization: " + id);
+                    }
+                } catch (RuntimeException | IOException exception) {
+                    throw new IllegalArgumentException("Recipe " + id + " is invalid: " + exception.getMessage(), exception);
+                }
+            }
+        }
+
+        Map<NamespacedKey, RecipeDefinition> previous = Map.copyOf(registered);
         registered.keySet().forEach(Bukkit::removeRecipe);
         registered.clear();
-        ConfigurationSection root = configs.file("recipes.yml").getConfigurationSection("recipes");
-        if (root == null) return;
-        for (String id : root.getKeys(false)) {
-            try {
-                RecipeDefinition definition = parse(id, root.getConfigurationSection(id));
-                if (!definition.enabled()) continue;
-                NamespacedKey key = new NamespacedKey(plugin, safe(id));
-                Recipe recipe = build(key, definition);
-                if (!Bukkit.addRecipe(recipe)) throw new IllegalArgumentException("recipe key or shape conflicts with an existing recipe");
-                registered.put(key, definition);
-            } catch (RuntimeException | IOException exception) {
-                plugin.getLogger().severe("Recipe " + id + " was disabled: " + exception.getMessage());
+        try {
+            for (var entry : candidate.entrySet()) {
+                if (!Bukkit.addRecipe(build(entry.getKey(), entry.getValue()))) {
+                    throw new IllegalArgumentException("recipe key or shape conflicts with an existing recipe: " + entry.getKey());
+                }
+                registered.put(entry.getKey(), entry.getValue());
             }
+        } catch (RuntimeException | IOException exception) {
+            registered.keySet().forEach(Bukkit::removeRecipe);
+            registered.clear();
+            try {
+                for (var entry : previous.entrySet()) {
+                    Bukkit.addRecipe(build(entry.getKey(), entry.getValue()));
+                    registered.put(entry.getKey(), entry.getValue());
+                }
+            } catch (RuntimeException | IOException rollbackFailure) {
+                exception.addSuppressed(rollbackFailure);
+            }
+            throw new IllegalArgumentException("Recipe reload rolled back: " + exception.getMessage(), exception);
         }
     }
 

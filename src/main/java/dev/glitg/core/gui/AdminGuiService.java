@@ -533,7 +533,7 @@ public final class AdminGuiService implements Listener {
     public void onClick(InventoryClickEvent event) {
         if (!(event.getInventory().getHolder() instanceof MenuHolder holder)) return;
         event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player player) || !player.hasPermission("glitgcore.admin")) return;
+        if (!(event.getWhoClicked() instanceof Player player) || !authorized(player, holder)) return;
         try {
             switch (holder.type) {
                 case CATEGORY -> handleCategory(player, event, holder);
@@ -556,6 +556,14 @@ public final class AdminGuiService implements Listener {
         } catch (Exception exception) {
             player.sendMessage(text("<red>That change was not saved:</red> <gray>" + exception.getMessage() + "</gray>"));
         }
+    }
+
+    private static boolean authorized(Player player, MenuHolder holder) {
+        return switch (holder.type) {
+            case ITEM_RULES, RULE_ACTIONS, ITEM_LIMITS, PROTECTED_ITEMS, PROTECTED_ENTRY, POTIONS, ENCHANTMENTS ->
+                    player.hasPermission("glitgcore.items.manage");
+            default -> player.hasPermission("glitgcore.admin");
+        };
     }
 
     @EventHandler
@@ -603,7 +611,7 @@ public final class AdminGuiService implements Listener {
         }
         if (slot == 48) { player.closeInventory(); return; }
         if (slot == 50) {
-            try { configs.reload(); plugin.reloadServices(); player.sendMessage(text("<green>Configuration reloaded and validated.</green>")); }
+            try { plugin.reloadConfiguration(); player.sendMessage(text("<green>Configuration reloaded and validated.</green>")); }
             catch (Exception exception) { player.sendMessage(text("<red>Reload failed:</red> <gray>" + exception.getMessage() + "</gray>")); }
             openCategory(player, holder.category);
             return;

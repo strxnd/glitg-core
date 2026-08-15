@@ -24,6 +24,7 @@ The interface uses a shared obsidian, antique-gold, champagne, ivory, silk, and 
 | `items.audit-insertions`, `.audit-interval-ticks` | policy / `100` | Recoverably drop prohibited or excess items inserted outside normal event paths |
 | `features.operator-bypass` | `false` | Sole authority for operator gameplay bypass; granular bypass permissions remain available to non-operators |
 | `items.traverse-shulkers`, `.traverse-bundles` | `true` | Nested bypass checks |
+| `items.grandfather-existing-mythical` | `true` | One-time durable marking of pre-enforcement potion/enchantment items |
 | `combat.duration-seconds` | `15` | Absolute combat-tag duration |
 | `combat.block-commands` | `true` | Block non-whitelisted commands while tagged |
 | `combat.whitelisted-commands` | messaging/status | Command labels without leading slash |
@@ -49,11 +50,17 @@ The interface uses a shared obsidian, antique-gold, champagne, ivory, silk, and 
 | `death.custom-message` | empty | MiniMessage template, supports `<player>` |
 | `death.sound` | empty | Namespaced sound key |
 | `dimensions.nether-locked`, `.end-locked` | `false` | Portal/API/world-change locks |
-| `packet-protections.*` | `false` | Provider-gated health/seed/minimap controls |
+| `locator-bar.enabled` | `false` | Vanilla Locator Bar game rule in every loaded world |
+| `xp-clumps.*` | policy | Nearby XP merge radius and maximum clump value |
+| `shield-tweaks.*` | policy | Block sound, disable cooldown ticks, and damage-immunity behavior |
+| `sleep.players-sleeping-percentage` | `1` | World sleep percentage; one gives practical one-player sleep |
+| `pvp.enabled`, `.damage-multiplier` | `true`, `1.0` | Global PvP state and general PvP damage scale |
+| `health-indicator.label` | heart | Below-name vanilla health objective label |
 | `villagers.infinite-restock` | `false` | Event-driven recipe reset |
 | `villagers.anchor-on-click` | `false` | Right-click disables AI |
 | `villagers.prevent-killing` | `false` | Cancel direct player damage |
-| `misc.hide-invisible-deaths-until` | empty | Independent ISO-8601 cutoff for invisible killer/victim death messages |
+| `misc.hide-invisible-deaths-until` | empty | Optional ISO-8601 cutoff for invisible-message hiding |
+| `misc.hide-invisible-kills`, `.hide-invisible-deaths` | `false` | Independent invisible killer/victim message controls |
 | `misc.ban-bed-bombing`, `.ban-respawn-anchor-bombing` | policy | Cancel explosive use in unsafe dimensions |
 | `misc.breeze-rod-drop-multiplier` | `2` | Event-driven Breeze Rod drop multiplier |
 | `misc.happy-ghast-speed-multiplier` | `1.0` | One-time base flying-speed multiplier |
@@ -66,7 +73,7 @@ The interface uses a shared obsidian, antique-gold, champagne, ivory, silk, and 
 | `misc.better-pearl-catching` | `false` | Catch pearls that collide with players |
 | `custom-spawn.*` | empty | World, x/y/z, yaw/pitch written by command |
 
-Feature keys are: `item-rules`, `item-limits`, `potion-policy`, `enchant-policy`, `unique-items`, `custom-crafting`, `protected-items`, `combat-tag`, `cooldowns`, `damage-caps`, `protections`, `grace`, `death-system`, `join-kit`, `dimensions`, `packet-protections`, `admin-utilities`, `altars`, `rituals`, `villagers`, `golden-heads`, `warden-heart`, and `miscellaneous`.
+Feature keys are: `item-rules`, `item-limits`, `potion-policy`, `enchant-policy`, `unique-items`, `custom-crafting`, `protected-items`, `combat-tag`, `cooldowns`, `damage-caps`, `protections`, `grace`, `death-system`, `join-kit`, `dimensions`, `locator-bar`, `xp-clumps`, `shield-tweaks`, `one-player-sleep`, `global-pvp`, `pvp-damage`, `health-indicator`, `admin-utilities`, `altars`, `rituals`, `villagers`, `golden-heads`, `warden-heart`, and `miscellaneous`.
 
 ## `items.yml`
 
@@ -74,7 +81,7 @@ Feature keys are: `item-rules`, `item-limits`, `potion-policy`, `enchant-policy`
 
 `limits.<id>` uses the same matcher plus `maximum` or `maximum-stacks`, optional shared `group`, and `scope` (`CARRIED`, `STORED`, or `COMBAT_LOADOUT`). Limits sharing a group are counted together. `protected.<id>` uses the same matcher plus `immortal`, `glowing`, and `stop-storage`. `unique.<id>` accepts `enabled`, `recipe-key` (or `recipe-id`), and global craft `limit`.
 
-`potion-policy` accepts banned base potion keys, banned effect keys, tier bans, per-effect `maximum-amplifier`, and `duration-rules.<id>` with `effect`, optional `amplifier`, and minimum/maximum ticks. Validation applies to base and custom effects on drinkable, splash, lingering, and tipped-arrow ItemStacks. `golden-head` and `warden-heart` expose their material/effect/drop defaults.
+`potion-policy` accepts banned base potion keys, banned effect keys, tier bans, per-effect `maximum-amplifier`, and `duration-rules.<id>` with `effect`, optional `amplifier`, and minimum/maximum ticks. Validation applies to base and custom effects on drinkable, splash, lingering, and tipped-arrow ItemStacks. `golden-head` exposes its effect defaults. `warden-heart.acquisition` is `RIGHT_CLICK`, `DROP`, or `BOTH`.
 
 Modern custom-model-data components are fingerprinted into safe matcher tags (`cmd-float:`, `cmd-string:`, `cmd-flag:`, `cmd-color:`); the integer field matches an integral first float component. PDC matching reads only explicitly configured string keys and never rewrites unrelated data.
 

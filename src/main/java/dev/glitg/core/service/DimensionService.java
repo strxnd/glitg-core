@@ -49,10 +49,10 @@ public final class DimensionService {
         };
         configs.main().set(key, locked);
         configs.save("config.yml");
-        if (!locked) {
-            scheduledUnlocks.remove(environment);
-            persist(environment, null);
-        }
+        // Any explicit lock/unlock supersedes an earlier schedule. The schedule command
+        // calls this first and then installs its new expiry.
+        scheduledUnlocks.remove(environment);
+        persist(environment, null);
     }
 
     public void scheduleUnlock(World.Environment environment, Duration duration) {

@@ -13,15 +13,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class IntegrationManager {
     private final JavaPlugin plugin;
-    private final boolean protocolLib;
-    private final boolean packetEvents;
     private final boolean worldGuard;
     private final AtomicBoolean worldGuardWarningLogged = new AtomicBoolean();
 
     public IntegrationManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        protocolLib = enabled("ProtocolLib");
-        packetEvents = enabled("packetevents") || enabled("PacketEvents");
         worldGuard = enabled("WorldGuard");
     }
 
@@ -30,7 +26,6 @@ public final class IntegrationManager {
         return candidate != null && candidate.isEnabled();
     }
 
-    public boolean packetProviderAvailable() { return protocolLib || packetEvents; }
     public boolean worldGuardAvailable() { return worldGuard; }
 
     /** Returns true only when WorldGuard publicly reports that PVP is denied at the location. */

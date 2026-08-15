@@ -17,10 +17,8 @@ import dev.glitg.core.service.DimensionService;
 import dev.glitg.core.service.GraceService;
 import dev.glitg.core.service.KitService;
 import dev.glitg.core.service.PostDeathProtectionService;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
@@ -41,10 +39,11 @@ import org.bukkit.persistence.PersistentDataType;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -82,6 +81,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
         this.uniqueItems=uniqueItems; this.database=database; this.altars=altars; this.gui=gui;
         this.postDeath=postDeath;
         vanishedKey = new NamespacedKey(plugin, "vanished");
+        Bukkit.getOnlinePlayers().forEach(this::restoreVanish);
     }
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -124,11 +124,12 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
         String sub = args.length == 0 ? "gui" : args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "gui" -> gui.open(requirePlayer(sender));
-            case "reload" -> { configs.reload(); rules.reload(); enchants.reload(); potions.reload(); plugin.reloadServices(); messages.send(sender, "reloaded"); }
+            case "reload" -> { plugin.reloadConfiguration(); messages.send(sender, "reloaded"); }
             case "status" -> sender.sendMessage(messages.raw("<gold>GLITG Core " + plugin.getPluginMeta().getVersion() + "</gold> <gray>— " + enabledCount() + " features enabled, " + Bukkit.getOnlinePlayers().size() + " online</gray>"));
             case "feature" -> {
                 if (args.length < 3) throw new IllegalArgumentException("Usage: /glitgcore feature <name> <on|off>");
-                boolean enabled = parseBoolean(args[2]); configs.setFeature(args[1], enabled);
+                if (!configs.main().contains("features." + args[1])) throw new IllegalArgumentException("Unknown feature: " + args[1]);
+                boolean enabled = parseBoolean(args[2]); configs.setFeature(args[1], enabled); plugin.reloadServices();
                 messages.send(sender, "feature-changed", Map.of("feature", args[1], "state", enabled ? "enabled" : "disabled"));
             }
             case "recipe" -> { if (args.length < 2) throw new IllegalArgumentException("Usage: /glitgcore recipe <id>"); gui.openRecipeEditor(requirePlayer(sender), args[1]); }
@@ -157,17 +158,17 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
     private boolean protection(CommandSender sender){Player player=requirePlayer(sender);long seconds=(postDeath.remaining(player.getUniqueId()).toMillis()+999)/1000;messages.send(player,"post-death-remaining",Map.of("seconds",seconds));return true;}
 
     private boolean cooldown(CommandSender sender,String[] args){
-        Player self=requirePlayer(sender); if(args.length==0||args[0].equalsIgnoreCase("status")){String key=args.length>1?args[1]:"ender_pearl";long seconds=(cooldowns.remaining(self.getUniqueId(),key).toMillis()+999)/1000;sender.sendMessage(messages.raw("<gray>"+key+": "+seconds+"s</gray>"));return true;}
-        if(args[0].equalsIgnoreCase("reset")){if(!sender.hasPermission("glitgcore.cooldown.reset"))throw new IllegalArgumentException("No permission");Player target=args.length>1?requireOnline(args[1]):self;if(args.length>2)cooldowns.reset(target.getUniqueId(),args[2]);else cooldowns.resetAll(target.getUniqueId());sender.sendMessage(messages.raw("<green>Cooldowns reset.</green>"));return true;}return false;
+        if(args.length==0||args[0].equalsIgnoreCase("status")){Player self=requirePlayer(sender);String key=args.length>1?args[1]:"ender_pearl";long seconds=(cooldowns.remaining(self.getUniqueId(),key).toMillis()+999)/1000;sender.sendMessage(messages.raw("<gray>"+key+": "+seconds+"s</gray>"));return true;}
+        if(args[0].equalsIgnoreCase("reset")){requirePermission(sender,"glitgcore.cooldown.reset");Player target=args.length>1?requireOnline(args[1]):requirePlayer(sender);if(args.length>2)cooldowns.reset(target.getUniqueId(),args[2]);else cooldowns.resetAll(target.getUniqueId());sender.sendMessage(messages.raw("<green>Cooldowns reset.</green>"));return true;}throw new IllegalArgumentException("Unknown cooldown operation");
     }
 
     private boolean graceStatus(CommandSender sender){sender.sendMessage(messages.raw("<gray>Grace "+(grace.active()?"active for "+grace.remaining().toSeconds()+"s":"inactive")+".</gray>"));return true;}
     private boolean start(CommandSender sender,String[] args){long seconds=args.length>0?Long.parseLong(args[0]):configs.main().getLong("grace.duration-seconds",3600);grace.start(Duration.ofSeconds(seconds));return true;}
     private boolean stopGrace(CommandSender sender){grace.stop();return true;}
 
-    private boolean kit(CommandSender sender,String[] args)throws IOException{
-        if(args.length==0)throw new IllegalArgumentException("Usage: /kit <save|load|clear|resetplayer|join|give>");Player player=requirePlayer(sender);
-        switch(args[0].toLowerCase(Locale.ROOT)){case"save"->kits.save(player);case"load"->kits.give(player,true);case"clear"->kits.clear();case"resetplayer"->kits.give(player,true);case"join"->{boolean next=args.length>1?parseBoolean(args[1]):!kits.joinEnabled();kits.setJoinEnabled(next);}case"give"->{if(args.length<2)throw new IllegalArgumentException("Usage: /kit give <player|@a>");if(args[1].equals("@a"))for(Player target:Bukkit.getOnlinePlayers())kits.give(target,false);else kits.give(requireOnline(args[1]),false);}default->throw new IllegalArgumentException("Unknown kit operation");}
+    private boolean kit(CommandSender sender,String[] args)throws IOException, SQLException{
+        if(args.length==0)throw new IllegalArgumentException("Usage: /kit <save|load|clear|resetplayer|join|give>");
+        switch(args[0].toLowerCase(Locale.ROOT)){case"save"->kits.save(requirePlayer(sender));case"load"->{if(args.length<2)kits.give(requirePlayer(sender),true);else if(args[1].equals("@a"))for(Player target:Bukkit.getOnlinePlayers())kits.give(target,true);else kits.give(requireOnline(args[1]),true);}case"clear"->kits.clear();case"resetplayer"->{if(args.length<2)throw new IllegalArgumentException("Usage: /kit resetplayer <player>");kits.resetEligibility(requireKnownUuid(args[1]));}case"join"->{boolean next=args.length>1?parseBoolean(args[1]):!kits.joinEnabled();kits.setJoinEnabled(next);}case"give"->{if(args.length<2)throw new IllegalArgumentException("Usage: /kit give <player|@a>");if(args[1].equals("@a"))for(Player target:Bukkit.getOnlinePlayers())kits.give(target,false);else kits.give(requireOnline(args[1]),false);}default->throw new IllegalArgumentException("Unknown kit operation");}
         sender.sendMessage(messages.raw("<green>Kit operation complete.</green>"));return true;
     }
 
@@ -238,21 +239,93 @@ public final class CommandRouter implements CommandExecutor, TabCompleter, Liste
 
     private boolean unique(CommandSender sender,String[]args){if(args.length<2)throw new IllegalArgumentException("Usage: /uniqueitem <query|set|reset> <id> [value]");switch(args[0].toLowerCase(Locale.ROOT)){case"query"->sender.sendMessage(messages.raw("<gray>"+args[1]+" used: "+uniqueItems.used(args[1])+"</gray>"));case"set"->{if(args.length<3)throw new IllegalArgumentException("Value required");uniqueItems.set(args[1],Integer.parseInt(args[2]));}case"reset"->uniqueItems.set(args[1],0);default->throw new IllegalArgumentException("Unknown operation");}return true;}
 
-    private boolean deathBan(CommandSender sender,String[]args)throws SQLException{if(args.length<1)throw new IllegalArgumentException("Usage: /deathban <status|clear> [player]");Player target=args.length>1?requireOnline(args[1]):requirePlayer(sender);if(args[0].equalsIgnoreCase("clear")){database.clearDeathBan(target.getUniqueId());sender.sendMessage(messages.raw("<green>Death ban cleared.</green>"));}else{long expiry=database.deathBanExpiry(target.getUniqueId());sender.sendMessage(messages.raw("<gray>Death ban remaining: "+Math.max(0,(expiry-System.currentTimeMillis()+999)/1000)+"s</gray>"));}return true;}
+    private boolean deathBan(CommandSender sender,String[]args)throws SQLException{if(args.length<1)throw new IllegalArgumentException("Usage: /deathban <status|clear> [player]");String operation=args[0].toLowerCase(Locale.ROOT);if(!operation.equals("status")&&!operation.equals("clear"))throw new IllegalArgumentException("Unknown deathban operation");UUID target=args.length>1?requireKnownUuid(args[1]):requirePlayer(sender).getUniqueId();if(operation.equals("clear")){database.clearDeathBan(target);sender.sendMessage(messages.raw("<green>Death ban cleared.</green>"));}else{long expiry=database.deathBanExpiry(target);sender.sendMessage(messages.raw("<gray>Death ban remaining: "+Math.max(0,(expiry-System.currentTimeMillis()+999)/1000)+"s</gray>"));}return true;}
 
-    private boolean altar(CommandSender sender,String[]args)throws SQLException{if(args.length<1)throw new IllegalArgumentException("Usage: /saltar <place|remove|list|info> [id]");switch(args[0].toLowerCase(Locale.ROOT)){case"place"->{if(args.length<2)throw new IllegalArgumentException("Definition required");String id=altars.place(requirePlayer(sender),args[1]);sender.sendMessage(messages.raw("<green>Placed altar "+id+".</green>"));}case"remove"->{if(args.length<2)throw new IllegalArgumentException("ID required");sender.sendMessage(messages.raw(altars.remove(args[1])?"<green>Altar removed.</green>":"<yellow>Unknown altar.</yellow>"));}case"list"->sender.sendMessage(messages.raw("<gray>Altars: "+altars.list().stream().map(SqliteDatabase.AltarRow::id).toList()+"</gray>"));case"info"->{var row=altars.at(requirePlayer(sender).getTargetBlockExact(6).getLocation());sender.sendMessage(messages.raw(row==null?"<yellow>No altar targeted.</yellow>":"<gray>"+row+"</gray>"));}default->throw new IllegalArgumentException("Unknown altar operation");}return true;}
+    private boolean altar(CommandSender sender,String[]args)throws SQLException{if(args.length<1)throw new IllegalArgumentException("Usage: /saltar <place|remove|list|info> [id]");switch(args[0].toLowerCase(Locale.ROOT)){case"place"->{if(args.length<2)throw new IllegalArgumentException("Definition required");String id=altars.place(requirePlayer(sender),args[1]);sender.sendMessage(messages.raw("<green>Placed altar "+id+".</green>"));}case"remove"->{if(args.length<2)throw new IllegalArgumentException("ID required");sender.sendMessage(messages.raw(altars.remove(args[1])?"<green>Altar removed.</green>":"<yellow>Unknown altar.</yellow>"));}case"list"->sender.sendMessage(messages.raw("<gray>Altars: "+altars.list().stream().map(SqliteDatabase.AltarRow::id).toList()+"</gray>"));case"info"->{SqliteDatabase.AltarRow row;if(args.length>1)row=altars.byId(args[1]);else{var block=requirePlayer(sender).getTargetBlockExact(6);row=block==null?null:altars.at(block.getLocation());}sender.sendMessage(messages.raw(row==null?"<yellow>No matching altar.</yellow>":"<gray>"+row+"</gray>"));}default->throw new IllegalArgumentException("Unknown altar operation");}return true;}
 
     private boolean enchant(CommandSender sender,String[]args){if(args.length<2)throw new IllegalArgumentException("Usage: /enchant <player|@s|@a> <enchantment> [level|remove]");List<Player> targets=selector(sender,args[0]);NamespacedKey key=NamespacedKey.fromString(args[1].contains(":")?args[1]:"minecraft:"+args[1]);Enchantment enchantment=key==null?null:RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT).get(key);if(enchantment==null)throw new IllegalArgumentException("Unknown enchantment");int level=args.length<3?1:args[2].equalsIgnoreCase("remove")?0:Integer.parseInt(args[2]);for(Player target:targets){ItemStack item=requireHeld(target);ItemStack before=item.clone();if(item.getItemMeta() instanceof EnchantmentStorageMeta storage){if(level==0)storage.removeStoredEnchant(enchantment);else storage.addStoredEnchant(enchantment,level,true);item.setItemMeta(storage);}else{if(level==0)item.removeEnchantment(enchantment);else item.addUnsafeEnchantment(enchantment,level);}if(enchants.violation(item)!=null){target.getInventory().setItemInMainHand(before);throw new IllegalArgumentException("Configured enchant policy rejects that level");}}sender.sendMessage(messages.raw("<green>Enchantment applied.</green>"));return true;}
 
-    @EventHandler public void onJoin(PlayerJoinEvent event){for(UUID id:vanished){Player hidden=Bukkit.getPlayer(id);if(hidden!=null&&!event.getPlayer().hasPermission("glitgcore.admin.vanish.see"))event.getPlayer().hidePlayer(plugin,hidden);}}
+    @EventHandler public void onJoin(PlayerJoinEvent event){Player joining=event.getPlayer();restoreVanish(joining);for(UUID id:vanished){Player hidden=Bukkit.getPlayer(id);if(hidden!=null&&!joining.hasPermission("glitgcore.admin.vanish.see"))joining.hidePlayer(plugin,hidden);}if(vanished.contains(joining.getUniqueId()))for(Player viewer:Bukkit.getOnlinePlayers())if(!viewer.equals(joining)&&!viewer.hasPermission("glitgcore.admin.vanish.see"))viewer.hidePlayer(plugin,joining);}
 
-    @Override public List<String> onTabComplete(CommandSender sender,Command command,String alias,String[]args){String name=command.getName().toLowerCase(Locale.ROOT);List<String> candidates=switch(name){case"glitgcore"->args.length==1?List.of("gui","reload","status","feature","recipe","debug","version"):List.of();case"banitem"->Arrays.stream(ItemAction.values()).map(Enum::name).toList();case"kit"->List.of("save","load","clear","resetplayer","join","give");case"dimension"->args.length==1?List.of("status","lock","unlock","schedule"):args.length==2?List.of("nether","end"):List.of();case"anonymousdeaths"->List.of("status","start","stop");case"uniqueitem"->List.of("query","set","reset");case"deathban"->List.of("status","clear");case"saltar"->List.of("place","remove","list","info");case"cooldown"->List.of("status","reset");default->Bukkit.getOnlinePlayers().stream().map(Player::getName).toList();};String prefix=args.length==0?"":args[args.length-1].toLowerCase(Locale.ROOT);return candidates.stream().filter(value->value.toLowerCase(Locale.ROOT).startsWith(prefix)).sorted().toList();}
+    private void restoreVanish(Player player){if(player.getPersistentDataContainer().has(vanishedKey,PersistentDataType.BYTE)){vanished.add(player.getUniqueId());player.setCanPickupItems(false);}}
+
+    @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        return CommandSuggestions.suggest(command.getName(), args, completionContext(sender));
+    }
+
+    private CommandSuggestions.Context completionContext(CommandSender sender) {
+        List<String> players = Bukkit.getOnlinePlayers().stream()
+                .filter(player -> !(sender instanceof Player viewer) || viewer.canSee(player))
+                .map(Player::getName)
+                .toList();
+        List<String> worlds = Bukkit.getWorlds().stream().map(World::getName).toList();
+        List<String> features = sectionKeys(configs.main(), "features", false);
+        List<String> recipes = sectionKeys(configs.file("recipes.yml"), "recipes", false);
+        List<String> cooldownKeys = sectionKeys(configs.main(), "cooldowns", false);
+        List<String> uniqueItemIds = sectionKeys(configs.file("items.yml"), "unique", false);
+        List<String> altarDefinitions = sectionKeys(configs.file("rituals.yml"), "altars", true);
+        List<String> altarIds = altars.list().stream().map(SqliteDatabase.AltarRow::id).toList();
+        List<String> itemLimits = itemLimitSuggestions(sender);
+        List<String> durations = durationSuggestions();
+        Map<String, Integer> enchantmentLevels = enchantmentLevels();
+        return new CommandSuggestions.Context(players, worlds, features, recipes, cooldownKeys, uniqueItemIds,
+                altarDefinitions, altarIds, itemLimits, durations, enchantmentLevels, sender instanceof Player,
+                sender.hasPermission("glitgcore.cooldown.reset"), sender.hasPermission("glitgcore.dimension.manage"),
+                sender.hasPermission("glitgcore.timers.manage"));
+    }
+
+    private List<String> itemLimitSuggestions(CommandSender sender) {
+        LinkedHashSet<String> values = new LinkedHashSet<>(List.of("remove", "0", "1"));
+        if (sender instanceof Player player) {
+            ItemStack held = player.getInventory().getItemInMainHand();
+            if (!held.getType().isAir()) values.add(String.valueOf(held.getMaxStackSize()));
+        }
+        return List.copyOf(values);
+    }
+
+    private List<String> durationSuggestions() {
+        LinkedHashSet<String> values = new LinkedHashSet<>();
+        values.add(String.valueOf(configs.main().getLong("grace.duration-seconds", 3600)));
+        values.addAll(List.of("60", "300", "3600", "86400", "604800"));
+        return List.copyOf(values);
+    }
+
+    private Map<String, Integer> enchantmentLevels() {
+        var registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT);
+        Set<String> banned = configs.file("enchants.yml").getStringList("banned").stream()
+                .map(value -> namespaced(value).toLowerCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toSet());
+        var maximums = configs.file("enchants.yml").getConfigurationSection("maximum-levels");
+        Map<String, Integer> values = new LinkedHashMap<>();
+        registry.stream().sorted(java.util.Comparator.comparing(enchantment -> registry.getKey(enchantment).toString()))
+                .forEach(enchantment -> {
+                    String key = registry.getKey(enchantment).toString();
+                    int maximum = maximums == null ? enchantment.getMaxLevel()
+                            : maximums.getInt(key, enchantment.getMaxLevel());
+                    values.put(key, banned.contains(key) ? 0 : Math.max(0, maximum));
+                });
+        return values;
+    }
+
+    private static String namespaced(String value) {
+        return value.contains(":") ? value : "minecraft:" + value;
+    }
+
+    private static List<String> sectionKeys(org.bukkit.configuration.file.YamlConfiguration yaml, String path, boolean enabledOnly) {
+        var section = yaml.getConfigurationSection(path);
+        if (section == null) return List.of();
+        return section.getKeys(false).stream()
+                .filter(key -> !enabledOnly || section.getBoolean(key + ".enabled", false))
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
 
     private int enabledCount(){var section=configs.main().getConfigurationSection("features");return section==null?0:(int)section.getKeys(false).stream().filter(key->section.getBoolean(key)).count();}
     private static boolean parseBoolean(String raw){return switch(raw.toLowerCase(Locale.ROOT)){case"on","true","enable","enabled"->true;case"off","false","disable","disabled"->false;default->throw new IllegalArgumentException("Expected on or off");};}
     private static World.Environment parseEnvironment(String raw){return switch(raw.toLowerCase(Locale.ROOT)){case"nether"->World.Environment.NETHER;case"end","the_end"->World.Environment.THE_END;default->throw new IllegalArgumentException("Expected nether or end");};}
     private static Player requirePlayer(CommandSender sender){if(sender instanceof Player player)return player;throw new IllegalArgumentException("This command requires a player");}
     private static Player requireOnline(String name){Player player=Bukkit.getPlayerExact(name);if(player==null)throw new IllegalArgumentException("Player is not online: "+name);return player;}
+    private UUID requireKnownUuid(String name) throws SQLException {Player online=Bukkit.getPlayerExact(name);if(online!=null)return online.getUniqueId();var stored=database.playerUuid(name);if(stored.isPresent())return stored.get();var cached=Bukkit.getOfflinePlayerIfCached(name);if(cached!=null&&cached.hasPlayedBefore())return cached.getUniqueId();throw new IllegalArgumentException("Unknown player: "+name);}
     private static ItemStack requireHeld(Player player){ItemStack held=player.getInventory().getItemInMainHand();if(held.getType().isAir())throw new IllegalArgumentException("Hold an item in your main hand");return held;}
     private static void requirePermission(CommandSender sender,String permission){if(!sender.hasPermission(permission))throw new IllegalArgumentException("No permission");}
     private static List<Player> selector(CommandSender sender,String selector){if(selector.equals("@a"))return List.copyOf(Bukkit.getOnlinePlayers());if(selector.equals("@s"))return List.of(requirePlayer(sender));return List.of(requireOnline(selector));}

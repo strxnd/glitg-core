@@ -7,3 +7,4 @@ smoke-server/
 *.db
 *.db-shm
 *.db-wal
+.codex/audits/
