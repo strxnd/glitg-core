@@ -58,7 +58,7 @@ commands:
     usage: /vanish [player]
     permission: glitgcore.admin.vanish
   sbroadcast:
-    description: Broadcast an Adventure-formatted server message
+    description: Broadcast a server message
     usage: /sbroadcast <message>
     permission: glitgcore.admin.broadcast
   reply:

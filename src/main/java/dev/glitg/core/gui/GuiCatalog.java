@@ -10,9 +10,9 @@ final class GuiCatalog {
     private GuiCatalog() {}
 
     enum Category {
-        RULES("Rules", Material.DIAMOND_SWORD),
-        BALANCING("Balancing", Material.REPEATER),
-        OTHER("Content & tools", Material.CRAFTING_TABLE);
+        RULES("Gameplay", Material.DIAMOND_SWORD),
+        BALANCING("Balance", Material.REPEATER),
+        OTHER("Content", Material.CRAFTING_TABLE);
 
         final String label;
         final Material icon;
@@ -53,15 +53,14 @@ final class GuiCatalog {
     private static Map<String, Feature> buildFeatures() {
         Map<String, Feature> features = new LinkedHashMap<>();
 
-        add(features, "operator-bypass", "Operator gameplay bypass", Material.GOLDEN_HELMET, Category.RULES, Special.NONE,
-                List.of("Let operators ignore permission-backed gameplay restrictions.",
-                        "Keep this off when operators should test the same rules as players."), List.of());
+        add(features, "operator-bypass", "Operator bypass", Material.GOLDEN_HELMET, Category.RULES, Special.NONE,
+                List.of("Let operators ignore gameplay restrictions."), List.of());
         add(features, "item-rules", "Item restrictions", Material.BARRIER, Category.RULES, Special.ITEM_RULES,
                 List.of("Control exactly how selected items may be used."), List.of(
                         bool("config.yml", "items.traverse-shulkers", "Inspect shulker boxes", Material.SHULKER_BOX, "Prevent nested-storage bypasses."),
                         bool("config.yml", "items.traverse-bundles", "Inspect bundles", Material.BUNDLE, "Prevent bundle bypasses.")));
         add(features, "item-limits", "Item limits", Material.HOPPER, Category.RULES, Special.ITEM_LIMITS,
-                List.of("Limit exact items and potion variants without deleting overflow."), List.of(
+                List.of("Set how many of an item each player may carry."), List.of(
                         bool("config.yml", "items.include-ender-chest", "Count ender chest", Material.ENDER_CHEST, "Include ender-chest contents in limits."),
                         enumeration("config.yml", "items.limit-scope", "Limit scope", Material.COMPASS, List.of("PLAYER"), "Where quantity limits are counted."),
                         enumeration("config.yml", "items.overflow", "Overflow action", Material.DROPPER, List.of("BLOCK"), "How excess items are handled.")));
@@ -77,7 +76,7 @@ final class GuiCatalog {
         add(features, "protected-items", "Special items", Material.TOTEM_OF_UNDYING, Category.RULES, Special.PROTECTED_ITEMS,
                 List.of("Configure immortal, glowing, and stop-storage items."), List.of());
         add(features, "combat-tag", "Combat tagging", Material.DIAMOND_SWORD, Category.RULES, Special.NONE,
-                List.of("Control PvP tags, commands, safe regions, and logout penalties."), List.of(
+                List.of("Manage PvP tags, commands, safe zones, and logout penalties."), List.of(
                         integer("config.yml", "combat.duration-seconds", "Tag duration", Material.CLOCK, "Seconds players remain tagged."),
                         bool("config.yml", "combat.block-commands", "Block commands", Material.COMMAND_BLOCK, "Block non-whitelisted commands during combat."),
                         list("config.yml", "combat.whitelisted-commands", "Allowed commands", Material.PAPER, "Comma-separated commands allowed during combat."),
@@ -96,7 +95,7 @@ final class GuiCatalog {
                         bool("config.yml", "dimensions.nether-locked", "Nether locked", Material.NETHERRACK, "Block travel into the Nether."),
                         bool("config.yml", "dimensions.end-locked", "End locked", Material.END_STONE, "Block travel into the End.")));
         add(features, "packet-protections", "Information defenses", Material.SPYGLASS, Category.RULES, Special.NONE,
-                List.of("Optional provider-backed health, seed, and minimap defenses."), List.of(
+                List.of("Hide server data exposed by supported packet providers."), List.of(
                         bool("config.yml", "packet-protections.anti-health-indicator", "Hide health indicators", Material.GOLDEN_APPLE, "Requires a supported packet provider."),
                         bool("config.yml", "packet-protections.anti-seed-cracking", "Seed protection", Material.WHEAT_SEEDS, "Requires a supported packet provider."),
                         bool("config.yml", "packet-protections.anti-minimap", "Minimap protection", Material.FILLED_MAP, "Advertise minimap restrictions where supported."),
@@ -124,7 +123,7 @@ final class GuiCatalog {
                         decimal("config.yml", "damage-caps.projectile", "Projectile", Material.ARROW),
                         decimal("config.yml", "damage-caps.fall", "Fall", Material.FEATHER)));
         add(features, "grace", "Grace period", Material.BELL, Category.BALANCING, Special.NONE,
-                List.of("Configure the persisted server-opening grace timer."), List.of(
+                List.of("Set the opening grace period."), List.of(
                         bool("config.yml", "grace.active-on-startup", "Start automatically", Material.REDSTONE_TORCH, "Start a fresh grace period when the server boots."),
                         integer("config.yml", "grace.duration-seconds", "Default duration", Material.CLOCK, "Grace duration in seconds."),
                         list("config.yml", "grace.start-actions", "Start actions", Material.COMMAND_BLOCK, "Comma-separated console commands run when grace starts.")));
@@ -150,7 +149,7 @@ final class GuiCatalog {
                         decimal("items.yml", "warden-heart.drop-chance", "Drop chance", Material.WARDEN_SPAWN_EGG, "Probability from 0.0 to 1.0."),
                         string("items.yml", "warden-heart.material", "Result material", Material.ECHO_SHARD, "Minecraft material name.")));
         add(features, "miscellaneous", "Fight mechanics", Material.REDSTONE, Category.BALANCING, Special.NONE,
-                List.of("Smaller competitive-SMP rules collected in one place."), List.of(
+                List.of("Configure additional combat rules."), List.of(
                         bool("config.yml", "misc.locator-bar", "Locator bar", Material.COMPASS, "Enable the 26.2 locator-bar game rule."),
                         decimal("config.yml", "misc.happy-ghast-speed-multiplier", "Happy Ghast speed", Material.HAPPY_GHAST_SPAWN_EGG, "Base flying-speed multiplier."),
                         bool("config.yml", "misc.ban-tipped-arrows", "Ban tipped arrows", Material.TIPPED_ARROW, "Block potion arrows at launch."),
@@ -162,15 +161,15 @@ final class GuiCatalog {
                         bool("config.yml", "misc.better-pearl-catching", "Pearl catching", Material.ENDER_PEARL, "Return pearls caught by another player.")));
 
         add(features, "custom-crafting", "Custom crafting", Material.CRAFTING_TABLE, Category.OTHER, Special.RECIPES,
-                List.of("Create, inspect, edit, enable, and remove exact recipes."), List.of());
+                List.of("Create and manage custom recipes."), List.of());
         add(features, "altars", "Altars", Material.LODESTONE, Category.OTHER, Special.ALTARS,
-                List.of("Define persistent ritual locations and interaction radii."), List.of());
+                List.of("Manage persistent ritual locations."), List.of());
         add(features, "rituals", "Rituals", Material.SOUL_LANTERN, Category.OTHER, Special.RITUALS,
-                List.of("Configure inputs, timing, particles, results, and completion actions."), List.of());
+                List.of("Manage ritual inputs, timing, effects, and rewards."), List.of());
         add(features, "join-kit", "Join kit", Material.CHEST, Category.OTHER, Special.KITS,
-                List.of("Save, preview, enable, give, and clear the exact join kit."), List.of());
+                List.of("Configure the first-join kit."), List.of());
         add(features, "admin-utilities", "Admin utilities", Material.COMMAND_BLOCK, Category.OTHER, Special.ADMIN_UTILITIES,
-                List.of("Discover inventory, vanish, broadcast, teleport, and messaging tools."), List.of());
+                List.of("View staff commands and utilities."), List.of());
         return Map.copyOf(features);
     }
 
